@@ -7,6 +7,7 @@ import scipy.sparse as sp
 from lightfm.datasets import fetch_movielens, fetch_stackexchange
 
 
+@pytest.mark.long
 def test_basic_fetching_movielens():
 
     data = fetch_movielens()
@@ -31,6 +32,7 @@ def test_basic_fetching_movielens():
         data = fetch_movielens(indicator_features=False, genre_features=False)
 
 
+@pytest.mark.long
 def test_basic_fetching_stackexchange():
 
     test_fractions = (0.2, 0.5, 0.6)

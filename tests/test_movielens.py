@@ -2,9 +2,9 @@ import pickle
 
 import numpy as np
 
+import pytest
 import scipy.sparse as sp
 from scipy import stats
-
 from sklearn.metrics import roc_auc_score
 from sklearn.grid_search import RandomizedSearchCV
 from sklearn.cross_validation import KFold
@@ -84,8 +84,7 @@ def test_movielens_accuracy():
 def test_logistic_precision():
 
     model = LightFM(random_state=SEED)
-    model.fit_partial(train,
-                      epochs=10)
+    model.fit_partial(train, epochs=10)
 
     (train_precision,
      test_precision,
@@ -225,13 +224,9 @@ def test_bpr_precision_high_interaction_values():
 
 def test_warp_precision_multithreaded():
 
-    model = LightFM(learning_rate=0.05,
-                    loss='warp',
-                    random_state=SEED)
+    model = LightFM(learning_rate=0.05, loss='warp', random_state=SEED)
 
-    model.fit_partial(train,
-                      epochs=10,
-                      num_threads=4)
+    model.fit_partial(train, epochs=10, num_threads=4)
 
     (train_precision,
      test_precision,
@@ -255,9 +250,7 @@ def test_warp_precision_adadelta():
                     loss='warp',
                     random_state=SEED)
 
-    model.fit_partial(train,
-                      epochs=10,
-                      num_threads=1)
+    model.fit_partial(train, epochs=10, num_threads=1)
 
     (train_precision,
      test_precision,
@@ -281,9 +274,7 @@ def test_warp_precision_adadelta_multithreaded():
                     loss='warp',
                     random_state=SEED)
 
-    model.fit_partial(train,
-                      epochs=10,
-                      num_threads=4)
+    model.fit_partial(train, epochs=10, num_threads=4)
 
     (train_precision,
      test_precision,
@@ -310,8 +301,7 @@ def test_warp_precision_max_sampled():
     # over the training data
     model.max_sampled = 0
 
-    model.fit_partial(train,
-                      epochs=1)
+    model.fit_partial(train, epochs=1)
 
     (train_precision,
      test_precision,
@@ -325,6 +315,7 @@ def test_warp_precision_max_sampled():
     assert full_test_auc < 0.55
 
 
+@pytest.mark.long
 def test_warp_kos_precision():
 
     # Remove all negative examples
@@ -337,8 +328,7 @@ def test_warp_kos_precision():
                     loss='warp-kos',
                     random_state=SEED)
 
-    model.fit_partial(training,
-                      epochs=10)
+    model.fit_partial(training, epochs=10)
 
     (train_precision,
      test_precision,
@@ -360,16 +350,14 @@ def test_warp_stability():
 
     for lrate in learning_rates:
 
-        model = LightFM(learning_rate=lrate,
-                        loss='warp',
-                        random_state=SEED)
-        model.fit_partial(train,
-                          epochs=10)
+        model = LightFM(learning_rate=lrate, loss='warp', random_state=SEED)
+        model.fit_partial(train, epochs=10)
 
         assert not np.isnan(model.user_embeddings).any()
         assert not np.isnan(model.item_embeddings).any()
 
 
+@pytest.mark.long
 def test_movielens_genre_accuracy():
 
     item_features = fetch_movielens(indicator_features=False,
@@ -378,16 +366,10 @@ def test_movielens_genre_accuracy():
     assert item_features.shape[1] < item_features.shape[0]
 
     model = LightFM(random_state=SEED)
-    model.fit_partial(train,
-                      item_features=item_features,
-                      epochs=10)
+    model.fit_partial(train, item_features=item_features, epochs=10)
 
-    train_predictions = model.predict(train.row,
-                                      train.col,
-                                      item_features=item_features)
-    test_predictions = model.predict(test.row,
-                                     test.col,
-                                     item_features=item_features)
+    train_predictions = model.predict(train.row, train.col, item_features=item_features)
+    test_predictions = model.predict(test.row, test.col, item_features=item_features)
 
     assert roc_auc_score(train.data, train_predictions) > 0.75
     assert roc_auc_score(test.data, test_predictions) > 0.69
@@ -426,6 +408,7 @@ def test_get_representations():
         assert np.allclose(test_predictions, predictions, atol=0.000001)
 
 
+@pytest.mark.long
 def test_movielens_both_accuracy():
     """
     Accuracy with both genre metadata and item-specific
@@ -437,16 +420,10 @@ def test_movielens_both_accuracy():
                                     genre_features=True)['item_features']
 
     model = LightFM(random_state=SEED)
-    model.fit_partial(train,
-                      item_features=item_features,
-                      epochs=15)
+    model.fit_partial(train, item_features=item_features, epochs=15)
 
-    train_predictions = model.predict(train.row,
-                                      train.col,
-                                      item_features=item_features)
-    test_predictions = model.predict(test.row,
-                                     test.col,
-                                     item_features=item_features)
+    train_predictions = model.predict(train.row, train.col, item_features=item_features)
+    test_predictions = model.predict(test.row, test.col, item_features=item_features)
 
     assert roc_auc_score(train.data, train_predictions) > 0.84
     assert roc_auc_score(test.data, test_predictions) > 0.75
@@ -455,13 +432,10 @@ def test_movielens_both_accuracy():
 def test_movielens_accuracy_fit():
 
     model = LightFM(random_state=SEED)
-    model.fit(train,
-              epochs=10)
+    model.fit(train, epochs=10)
 
-    train_predictions = model.predict(train.row,
-                                      train.col)
-    test_predictions = model.predict(test.row,
-                                     test.col)
+    train_predictions = model.predict(train.row, train.col)
+    test_predictions = model.predict(test.row, test.col)
 
     assert roc_auc_score(train.data, train_predictions) > 0.84
     assert roc_auc_score(test.data, test_predictions) > 0.76
@@ -470,15 +444,12 @@ def test_movielens_accuracy_fit():
 def test_movielens_accuracy_pickle():
 
     model = LightFM(random_state=SEED)
-    model.fit(train,
-              epochs=10)
+    model.fit(train, epochs=10)
 
     model = pickle.loads(pickle.dumps(model))
 
-    train_predictions = model.predict(train.row,
-                                      train.col)
-    test_predictions = model.predict(test.row,
-                                     test.col)
+    train_predictions = model.predict(train.row, train.col)
+    test_predictions = model.predict(test.row, test.col)
 
     assert roc_auc_score(train.data, train_predictions) > 0.84
     assert roc_auc_score(test.data, test_predictions) > 0.76
@@ -489,13 +460,10 @@ def test_movielens_accuracy_resume():
     model = LightFM(random_state=SEED)
 
     for _ in range(10):
-        model.fit_partial(train,
-                          epochs=1)
+        model.fit_partial(train, epochs=1)
 
-    train_predictions = model.predict(train.row,
-                                      train.col)
-    test_predictions = model.predict(test.row,
-                                     test.col)
+    train_predictions = model.predict(train.row, train.col)
+    test_predictions = model.predict(test.row, test.col)
 
     assert roc_auc_score(train.data, train_predictions) > 0.84
     assert roc_auc_score(test.data, test_predictions) > 0.76
@@ -508,8 +476,7 @@ def test_movielens_accuracy_sample_weights():
 
     scale = 0.5
     weights = train.copy()
-    weights.data = np.ones(train.getnnz(),
-                           dtype=np.float32) * scale
+    weights.data = np.ones(train.getnnz(), dtype=np.float32) * scale
 
     for (loss, exp_score) in (('logistic', 0.74),
                               ('bpr', 0.84),
@@ -549,9 +516,7 @@ def test_movielens_accuracy_sample_weights_grad_accumulation():
     for loss in ('logistic', 'bpr', 'warp'):
         model = LightFM(loss=loss, random_state=SEED)
 
-        model.fit_partial(train,
-                          sample_weight=weights,
-                          epochs=1)
+        model.fit_partial(train, sample_weight=weights, epochs=1)
 
         assert np.allclose(model.user_embedding_gradients[odd_idx], 1.0)
         assert np.allclose(model.user_bias_gradients[odd_idx], 1.0)
@@ -564,23 +529,23 @@ def test_state_reset():
 
     model = LightFM(random_state=SEED)
 
-    model.fit(train,
-              epochs=1)
+    model.fit(train, epochs=1)
 
     assert np.mean(model.user_embedding_gradients) > 1.0
 
-    model.fit(train,
-              epochs=0)
+    model.fit(train, epochs=0)
     assert np.all(model.user_embedding_gradients == 1.0)
 
 
 def test_user_supplied_features_accuracy():
 
     model = LightFM(random_state=SEED)
-    model.fit_partial(train,
-                      user_features=train_user_features,
-                      item_features=train_item_features,
-                      epochs=10)
+    model.fit_partial(
+        train,
+        user_features=train_user_features,
+        item_features=train_item_features,
+        epochs=10,
+    )
 
     train_predictions = model.predict(train.row,
                                       train.col,
@@ -601,13 +566,10 @@ def test_zeros_negative_accuracy():
     # denote negative interactions
     train.data[train.data == -1] = 0
     model = LightFM(random_state=SEED)
-    model.fit_partial(train,
-                      epochs=10)
+    model.fit_partial(train, epochs=10)
 
-    train_predictions = model.predict(train.row,
-                                      train.col)
-    test_predictions = model.predict(test.row,
-                                     test.col)
+    train_predictions = model.predict(train.row, train.col)
+    test_predictions = model.predict(test.row, test.col)
 
     assert roc_auc_score(train.data, train_predictions) > 0.84
     assert roc_auc_score(test.data, test_predictions) > 0.76
@@ -619,19 +581,14 @@ def test_zero_weights_accuracy():
     # accuracy should be no better than
     # random.
     weights = train.copy()
-    weights.data = np.zeros(train.getnnz(),
-                            dtype=np.float32)
+    weights.data = np.zeros(train.getnnz(), dtype=np.float32)
 
     for loss in ('logistic', 'bpr', 'warp'):
         model = LightFM(loss=loss, random_state=SEED)
-        model.fit_partial(train,
-                          sample_weight=weights,
-                          epochs=10)
+        model.fit_partial(train, sample_weight=weights, epochs=10)
 
-        train_predictions = model.predict(train.row,
-                                          train.col)
-        test_predictions = model.predict(test.row,
-                                         test.col)
+        train_predictions = model.predict(train.row, train.col)
+        test_predictions = model.predict(test.row, test.col)
 
         assert 0.45 < roc_auc_score(train.data, train_predictions) < 0.55
         assert 0.45 < roc_auc_score(test.data, test_predictions) < 0.55
@@ -641,21 +598,16 @@ def test_hogwild_accuracy():
 
     # Should get comparable accuracy with 2 threads
     model = LightFM(random_state=SEED)
-    model.fit_partial(train,
-                      epochs=10,
-                      num_threads=2)
+    model.fit_partial(train, epochs=10, num_threads=2)
 
-    train_predictions = model.predict(train.row,
-                                      train.col,
-                                      num_threads=2)
-    test_predictions = model.predict(test.row,
-                                     test.col,
-                                     num_threads=2)
+    train_predictions = model.predict(train.row, train.col, num_threads=2)
+    test_predictions = model.predict(test.row, test.col, num_threads=2)
 
     assert roc_auc_score(train.data, train_predictions) > 0.84
     assert roc_auc_score(test.data, test_predictions) > 0.76
 
 
+@pytest.mark.long
 def test_movielens_excessive_regularization():
 
     for loss in ('logistic', 'warp', 'bpr', 'warp-kos'):
@@ -681,17 +633,15 @@ def test_movielens_excessive_regularization():
         assert roc_auc_score(test.data, test_predictions) < 0.65
 
 
+@pytest.mark.long
 def test_overfitting():
 
     # Let's massivly overfit
     model = LightFM(no_components=50, random_state=SEED)
-    model.fit_partial(train,
-                      epochs=30)
+    model.fit_partial(train, epochs=30)
 
-    train_predictions = model.predict(train.row,
-                                      train.col)
-    test_predictions = model.predict(test.row,
-                                     test.col)
+    train_predictions = model.predict(train.row, train.col)
+    test_predictions = model.predict(test.row, test.col)
     overfit_train = roc_auc_score(train.data, train_predictions)
     overfit_test = roc_auc_score(test.data, test_predictions)
 
@@ -699,20 +649,20 @@ def test_overfitting():
     assert overfit_test < 0.75
 
 
+@pytest.mark.long
 def test_regularization():
 
     # Let's regularize
-    model = LightFM(no_components=50,
-                    item_alpha=0.0001,
-                    user_alpha=0.0001,
-                    random_state=SEED)
-    model.fit_partial(train,
-                      epochs=30)
+    model = LightFM(
+        no_components=50,
+        item_alpha=0.0001,
+        user_alpha=0.0001,
+        random_state=SEED,
+    )
+    model.fit_partial(train, epochs=30)
 
-    train_predictions = model.predict(train.row,
-                                      train.col)
-    test_predictions = model.predict(test.row,
-                                     test.col)
+    train_predictions = model.predict(train.row, train.col)
+    test_predictions = model.predict(test.row, test.col)
 
     assert roc_auc_score(train.data, train_predictions) > 0.80
     assert roc_auc_score(test.data, test_predictions) > 0.75
@@ -720,11 +670,12 @@ def test_regularization():
 
 def test_training_schedules():
 
-    model = LightFM(no_components=10,
-                    learning_schedule='adagrad',
-                    random_state=SEED)
-    model.fit_partial(train,
-                      epochs=0)
+    model = LightFM(
+        no_components=10,
+        learning_schedule='adagrad',
+        random_state=SEED,
+    )
+    model.fit_partial(train, epochs=0)
 
     assert (model.item_embedding_gradients == 1).all()
     assert (model.item_embedding_momentum == 0).all()
@@ -736,8 +687,7 @@ def test_training_schedules():
     assert (model.user_bias_gradients == 1).all()
     assert (model.user_bias_momentum == 0).all()
 
-    model.fit_partial(train,
-                      epochs=1)
+    model.fit_partial(train, epochs=1)
 
     assert (model.item_embedding_gradients > 1).any()
     assert (model.item_embedding_momentum == 0).all()
@@ -752,8 +702,7 @@ def test_training_schedules():
     model = LightFM(no_components=10,
                     learning_schedule='adadelta',
                     random_state=SEED)
-    model.fit_partial(train,
-                      epochs=0)
+    model.fit_partial(train, epochs=0)
 
     assert (model.item_embedding_gradients == 0).all()
     assert (model.item_embedding_momentum == 0).all()
@@ -765,8 +714,7 @@ def test_training_schedules():
     assert (model.user_bias_gradients == 0).all()
     assert (model.user_bias_momentum == 0).all()
 
-    model.fit_partial(train,
-                      epochs=1)
+    model.fit_partial(train, epochs=1)
 
     assert (model.item_embedding_gradients > 0).any()
     assert (model.item_embedding_momentum > 0).any()
@@ -781,19 +729,21 @@ def test_training_schedules():
 
 def test_random_state_fixing():
 
-    model = LightFM(learning_rate=0.05,
-                    loss='warp',
-                    random_state=SEED)
+    model = LightFM(
+        learning_rate=0.05,
+        loss='warp',
+        random_state=SEED,
+    )
 
-    model.fit_partial(train,
-                      epochs=2)
+    model.fit_partial(train, epochs=2)
 
-    model_2 = LightFM(learning_rate=0.05,
-                      loss='warp',
-                      random_state=SEED)
+    model_2 = LightFM(
+        learning_rate=0.05,
+        loss='warp',
+        random_state=SEED,
+    )
 
-    model_2.fit_partial(train,
-                        epochs=2)
+    model_2.fit_partial(train, epochs=2)
 
     assert np.all(model.user_embeddings == model_2.user_embeddings)
     assert np.all(model.item_embeddings == model_2.item_embeddings)
@@ -804,21 +754,22 @@ def test_random_state_advanced():
     # to seed rand_r in Cython advances
     # the random generator state.
 
-    model = LightFM(learning_rate=0.05,
-                    loss='warp',
-                    random_state=SEED)
+    model = LightFM(
+        learning_rate=0.05,
+        loss='warp',
+        random_state=SEED,
+    )
 
-    model.fit_partial(train,
-                      epochs=1)
+    model.fit_partial(train, epochs=1)
 
     rng_state = model.random_state.get_state()[1].copy()
 
-    model.fit_partial(train,
-                      epochs=1)
+    model.fit_partial(train, epochs=1)
 
     assert not np.all(rng_state == model.random_state.get_state()[1])
 
 
+@pytest.mark.long
 def test_sklearn_cv():
 
     model = LightFM(loss='warp', random_state=42)
@@ -844,8 +795,13 @@ def test_sklearn_cv():
                 yield train_index, train_index
 
     cv = CV(n=train.shape[0], random_state=42)
-    search = RandomizedSearchCV(estimator=model, param_distributions=distr,
-                                n_iter=10, scoring=scorer, random_state=42,
-                                cv=cv)
+    search = RandomizedSearchCV(
+        estimator=model,
+        param_distributions=distr,
+        n_iter=10,
+        scoring=scorer,
+        random_state=42,
+        cv=cv,
+    )
     search.fit(train)
     assert search.best_params_['no_components'] == 52

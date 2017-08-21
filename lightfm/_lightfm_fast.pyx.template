@@ -3,6 +3,7 @@
 
 import numpy as np
 
+# noinspection PyUnresolvedReferences
 cimport cython.operator.dereference as deref
 from libc.stdlib cimport free, malloc
 
