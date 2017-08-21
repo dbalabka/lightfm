@@ -1,3 +1,9 @@
+PYTHON?=python3
+PYTHONPATH?=./
+SOURCE_DIR=./lightfm
+TESTS_DIR=./tests
+PEP8=pep8
+
 .PHONY: examples
 examples:
 	jupyter nbconvert --to rst examples/quickstart/quickstart.ipynb
@@ -24,3 +30,22 @@ update-docs:
 	&& cp -r ./doc/_build/html/* ./docs/ \
 	&& git add -A ./docs/* \
 	&& git commit -m 'Update docs.' && git push origin gh-pages
+
+clean: clean-pyc clean-test
+
+clean-pyc:
+	find . -name '*.py[cod]' -exec rm -f {} +
+	find . -name '__pycache__' -exec rm -rf {} +
+	find . -name '*$py.class' -exec rm -rf {} +
+
+clean-test:
+	rm -rf $(COVERAGE_HTML_REPORT_DIR)
+
+test:
+	- pip install -e .;
+	py.test -v tests
+
+check: pep8
+
+pep8:
+	$(PEP8) $(SOURCE_DIR) $(TESTS_DIR) $(BIN_DIR)
