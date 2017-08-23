@@ -41,7 +41,6 @@ def define_extensions(use_openmp):
                 extra_link_args=["-fopenmp"],
                 extra_compile_args=compile_args + ['-fopenmp'],
                 define_macros=[('CYTHON_TRACE_NOGIL', '1')],
-                compiler_directives={'linetrace': True, 'binding': True},
             ),
         ]
 
@@ -115,7 +114,9 @@ class Cythonize(Command):
                 extra_link_args=['-fopenmp'],
                 define_macros=[('CYTHON_TRACE_NOGIL', '1')],
                 compiler_directives={'linetrace': True, 'binding': True},
-            )])
+            )],
+            compiler_directives={'linetrace': True, 'binding': True},
+        )
 
 
 class Clean(Command):
