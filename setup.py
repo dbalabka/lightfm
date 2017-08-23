@@ -150,8 +150,7 @@ setup(
     description='LightFM recommendation model',
     url='https://github.com/lyst/lightfm',
     download_url='https://github.com/lyst/lightfm/tarball/{}'.format(version),
-    packages=['lightfm',
-              'lightfm.datasets'],
+    packages=['lightfm', 'lightfm.datasets'],
     package_data={'': ['*.c']},
     install_requires=['numpy', 'scipy>=0.17.0', 'requests'],
     tests_require=['pytest', 'requests', 'scikit-learn'],
@@ -159,8 +158,10 @@ setup(
     author='Lyst Ltd (Maciej Kula)',
     author_email='data@ly.st',
     license='MIT',
-    classifiers=['Development Status :: 3 - Alpha',
-                 'License :: OSI Approved :: MIT License',
-                 'Topic :: Scientific/Engineering :: Artificial Intelligence'],
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'License :: OSI Approved :: MIT License',
+        'Topic :: Scientific/Engineering :: Artificial Intelligence',
+    ],
     ext_modules=define_extensions(use_openmp)
 )

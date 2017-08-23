@@ -29,10 +29,8 @@ cdef extern from "math.h" nogil:
 
 cdef extern from "stdlib.h" nogil:
     ctypedef void const_void "const void"
-    void qsort(void *base, int nmemb, int size,
-               int(*compar)(const_void *, const_void *)) nogil
-    void* bsearch(const void *key, void *base, int nmemb, int size,
-                  int(*compar)(const_void *, const_void *)) nogil
+    void qsort(void *base, int nmemb, int size, int(*compar)(const_void *, const_void *)) nogil
+    void* bsearch(const void *key, void *base, int nmemb, int size, int(*compar)(const_void *, const_void *)) nogil
 
 
 # The rand_r implementation included below is a translation of the musl
@@ -296,6 +294,7 @@ cdef inline void compute_representation(CSRMatrix features,
     Compute latent representation for row_id.
     The last element of the representation is the bias.
     """
+    # TODO: seems like main candidate for optimizations
 
     cdef int i, j, start_index, stop_index, feature
     cdef flt feature_weight
@@ -303,9 +302,11 @@ cdef inline void compute_representation(CSRMatrix features,
     start_index = features.get_row_start(row_id)
     stop_index = features.get_row_end(row_id)
 
+    # TODO: memcopy
     for i in range(lightfm.no_components + 1):
         representation[i] = 0.0
 
+    # TODO: matrix operations
     for i in range(start_index, stop_index):
 
         feature = features.indices[i]
@@ -321,6 +322,7 @@ cdef inline void compute_representation(CSRMatrix features,
 cdef inline flt compute_prediction_from_repr(flt *user_repr,
                                              flt *item_repr,
                                              int no_components) nogil:
+    # TODO: wtf is this?
 
     cdef int i
     cdef flt result
@@ -1192,6 +1194,7 @@ def predict_lightfm(CSRMatrix item_features,
                     int num_threads):
     """
     Generate predictions.
+    Used by lightfm.predict
     """
 
     cdef int i, no_examples
@@ -1204,7 +1207,9 @@ def predict_lightfm(CSRMatrix item_features,
 
         user_repr = <flt *>malloc(sizeof(flt) * (lightfm.no_components + 1))
         it_repr = <flt *>malloc(sizeof(flt) * (lightfm.no_components + 1))
+        # todo: check ptrs
 
+        # mb optimize here?
         for i in {range_block}(no_examples):
 
             compute_representation(user_features,
@@ -1222,9 +1227,7 @@ def predict_lightfm(CSRMatrix item_features,
                                    lightfm.item_scale,
                                    it_repr)
 
-            predictions[i] = compute_prediction_from_repr(user_repr,
-                                                          it_repr,
-                                                          lightfm.no_components)
+            predictions[i] = compute_prediction_from_repr(user_repr, it_repr, lightfm.no_components)
 
         free(user_repr)
         free(it_repr)
@@ -1239,6 +1242,7 @@ def predict_ranks(CSRMatrix item_features,
                   int num_threads):
     """
     """
+    # TODO:
 
     cdef int i, j, user_id, item_id, predictions_size, row_start, row_stop
     cdef flt *user_repr
@@ -1251,9 +1255,10 @@ def predict_ranks(CSRMatrix item_features,
     # Figure out the max size of the predictions
     # buffer.
     for user_id in range(test_interactions.rows):
-        predictions_size = int_max(predictions_size,
-                                   test_interactions.get_row_end(user_id)
-                                   - test_interactions.get_row_start(user_id))
+        predictions_size = int_max(
+            predictions_size,
+            test_interactions.get_row_end(user_id) - test_interactions.get_row_start(user_id),
+        )
 
     {nogil_block}
 
@@ -1261,6 +1266,7 @@ def predict_ranks(CSRMatrix item_features,
         it_repr = <flt *>malloc(sizeof(flt) * (lightfm.no_components + 1))
         item_ids = <int *>malloc(sizeof(int) * predictions_size)
         predictions = <flt *>malloc(sizeof(flt) * predictions_size)
+        # TODO: OMG check pointers please!
 
         for user_id in {range_block}(test_interactions.rows):
 
@@ -1271,13 +1277,15 @@ def predict_ranks(CSRMatrix item_features,
                 # No test interactions for this user
                 continue
 
-            compute_representation(user_features,
-                                   lightfm.user_features,
-                                   lightfm.user_biases,
-                                   lightfm,
-                                   user_id,
-                                   lightfm.user_scale,
-                                   user_repr)
+            compute_representation(
+                user_features,
+                lightfm.user_features,
+                lightfm.user_biases,
+                lightfm,
+                user_id,
+                lightfm.user_scale,
+                user_repr,
+            )
 
             # Compute predictions for the items whose
             # ranks we want to know

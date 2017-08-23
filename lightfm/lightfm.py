@@ -706,23 +706,27 @@ class LightFM(object):
         n_users = user_ids.max() + 1
         n_items = item_ids.max() + 1
 
+        # TODO: cache user_features and item_features
         (user_features,
          item_features) = self._construct_feature_matrices(n_users,
                                                            n_items,
                                                            user_features,
                                                            item_features)
 
+        # TODO: cache this shit as well
         lightfm_data = self._get_lightfm_data()
 
         predictions = np.empty(len(user_ids), dtype=np.float64)
 
-        predict_lightfm(CSRMatrix(item_features),
-                        CSRMatrix(user_features),
-                        user_ids,
-                        item_ids,
-                        predictions,
-                        lightfm_data,
-                        num_threads)
+        predict_lightfm(
+            CSRMatrix(item_features),
+            CSRMatrix(user_features),
+            user_ids,
+            item_ids,
+            predictions,
+            lightfm_data,
+            num_threads,
+        )
 
         return predictions
 
