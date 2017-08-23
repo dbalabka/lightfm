@@ -322,7 +322,6 @@ cdef inline void compute_representation(CSRMatrix features,
 cdef inline flt compute_prediction_from_repr(flt *user_repr,
                                              flt *item_repr,
                                              int no_components) nogil:
-    # TODO: wtf is this?
 
     cdef int i
     cdef flt result
@@ -332,6 +331,7 @@ cdef inline flt compute_prediction_from_repr(flt *user_repr,
 
     # Latent factor dot product
     for i in range(no_components):
+        # TODO: muthafucka, i should vectorize this!
         result += user_repr[i] * item_repr[i]
 
     return result
@@ -1206,26 +1206,33 @@ def predict_lightfm(CSRMatrix item_features,
     {nogil_block}
 
         user_repr = <flt *>malloc(sizeof(flt) * (lightfm.no_components + 1))
+        # TODO: precompute item reprs? only once
         it_repr = <flt *>malloc(sizeof(flt) * (lightfm.no_components + 1))
         # todo: check ptrs
 
         # mb optimize here?
         for i in {range_block}(no_examples):
 
-            compute_representation(user_features,
-                                   lightfm.user_features,
-                                   lightfm.user_biases,
-                                   lightfm,
-                                   user_ids[i],
-                                   lightfm.user_scale,
-                                   user_repr)
-            compute_representation(item_features,
-                                   lightfm.item_features,
-                                   lightfm.item_biases,
-                                   lightfm,
-                                   item_ids[i],
-                                   lightfm.item_scale,
-                                   it_repr)
+            # TODO: compute user_repr only once
+            compute_representation(
+                user_features,
+                lightfm.user_features,
+                lightfm.user_biases,
+                lightfm,
+                user_ids[i],
+                lightfm.user_scale,
+                user_repr,
+            )
+
+            compute_representation(
+                item_features,
+                lightfm.item_features,
+                lightfm.item_biases,
+                lightfm,
+                item_ids[i],
+                lightfm.item_scale,
+                it_repr,
+            )
 
             predictions[i] = compute_prediction_from_repr(user_repr, it_repr, lightfm.no_components)
 

@@ -1,5 +1,5 @@
-# coding=utf-8
-from __future__ import print_function
+
+from typing import Union
 
 import numpy as np
 
@@ -270,30 +270,42 @@ class LightFM(object):
             self.user_embedding_gradients += 1
             self.user_bias_gradients += 1
 
-    def _construct_feature_matrices(self, n_users, n_items, user_features,
-                                    item_features):
+    def _construct_feature_matrices(self, n_users, n_items, user_features, item_features):
 
-        if user_features is None:
-            user_features = sp.identity(n_users,
-                                        dtype=CYTHON_DTYPE,
-                                        format='csr')
-        else:
-            user_features = user_features.tocsr()
+        user_features = self._construct_user_features(n_users, user_features)
+        item_features = self._construct_item_features(n_items, item_features)
+        return user_features, item_features
 
+    def _construct_item_features(self, n_items, item_features):
+        # TODO: mb. merge with user features
         if item_features is None:
-            item_features = sp.identity(n_items,
-                                        dtype=CYTHON_DTYPE,
-                                        format='csr')
+            item_features = sp.identity(n_items, dtype=CYTHON_DTYPE, format='csr')
         else:
             item_features = item_features.tocsr()
 
-        if n_users > user_features.shape[0]:
-            raise Exception('Number of user feature rows does not equal '
-                            'the number of users')
-
         if n_items > item_features.shape[0]:
-            raise Exception('Number of item feature rows does not equal '
-                            'the number of items')
+            raise Exception('Number of item feature rows does not equal the number of items')
+
+        if self.item_embeddings is not None:
+            if not self.item_embeddings.shape[0] >= item_features.shape[1]:
+                raise ValueError('The user feature matrix specifies more '
+                                 'features than there are estimated '
+                                 'feature embeddings: {} vs {}.'.format(
+                    self.item_embeddings.shape[0],
+                    item_features.shape[1]
+                ))
+
+        item_features = self._to_cython_dtype(item_features)
+        return item_features
+
+    def _construct_user_features(self, n_users, user_features):
+        if user_features is None:
+            user_features = sp.identity(n_users, dtype=CYTHON_DTYPE, format='csr')
+        else:
+            user_features = user_features.tocsr()
+
+        if n_users > user_features.shape[0]:
+            raise Exception('Number of user feature rows does not equal the number of users')
 
         # If we already have embeddings, verify that
         # we have them for all the supplied features
@@ -302,23 +314,13 @@ class LightFM(object):
                 raise ValueError('The user feature matrix specifies more '
                                  'features than there are estimated '
                                  'feature embeddings: {} vs {}.'.format(
-                                     self.user_embeddings.shape[0],
-                                     user_features.shape[1]
-                                 ))
-
-        if self.item_embeddings is not None:
-            if not self.item_embeddings.shape[0] >= item_features.shape[1]:
-                raise ValueError('The user feature matrix specifies more '
-                                 'features than there are estimated '
-                                 'feature embeddings: {} vs {}.'.format(
-                                     self.item_embeddings.shape[0],
-                                     item_features.shape[1]
-                                 ))
+                    self.user_embeddings.shape[0],
+                    user_features.shape[1]
+                ))
 
         user_features = self._to_cython_dtype(user_features)
-        item_features = self._to_cython_dtype(item_features)
+        return user_features
 
-        return user_features, item_features
 
     def _get_positives_lookup_matrix(self, interactions):
 
@@ -658,8 +660,15 @@ class LightFM(object):
                          self.user_alpha,
                          num_threads)
 
-    def predict(self, user_ids, item_ids, item_features=None,
-                user_features=None, num_threads=1):
+    def predict(self,
+                user_ids: Union[int, np.ndarray],
+                item_ids: np.ndarray,
+                item_features: Union[None, sp.csr_matrix]=None,
+                user_features: Union[None, sp.csr_matrix]=None,
+                num_threads: int=1,
+                do_reconstruct_item_features=True,
+                do_reconstruct_user_features=True,
+                ) -> np.ndarray:
         """
         Compute the recommendation score for user-item pairs.
 
@@ -701,17 +710,17 @@ class LightFM(object):
         if user_ids.dtype != np.int32:
             user_ids = user_ids.astype(np.int32)
         if item_ids.dtype != np.int32:
+            # TODO: force all item ids to int32 one at initial recommend
             item_ids = item_ids.astype(np.int32)
 
         n_users = user_ids.max() + 1
         n_items = item_ids.max() + 1
 
-        # TODO: cache user_features and item_features
-        (user_features,
-         item_features) = self._construct_feature_matrices(n_users,
-                                                           n_items,
-                                                           user_features,
-                                                           item_features)
+        if do_reconstruct_item_features:
+            item_features = self._construct_item_features(n_items, item_features)
+
+        if do_reconstruct_user_features:
+            user_features = self._construct_user_features(n_users, user_features)
 
         # TODO: cache this shit as well
         lightfm_data = self._get_lightfm_data()
