@@ -59,32 +59,30 @@ class Cythonize(Command):
              openmp.omp_init_lock(&THREAD_LOCK)
         """)
 
-        params = (('no_openmp', dict(openmp_import='',
-                                     nogil_block='with nogil:',
-                                     range_block='range',
-                                     thread_num='0',
-                                     lock_init='',
-                                     lock_acquire='',
-                                     lock_release='')),
-                  ('openmp', dict(openmp_import=openmp_import,
-                                  nogil_block='with nogil, parallel(num_threads=num_threads):',
-                                  range_block='prange',
-                                  thread_num='openmp.omp_get_thread_num()',
-                                  lock_init=lock_init,
-                                  lock_acquire='openmp.omp_set_lock(&THREAD_LOCK)',
-                                  lock_release='openmp.omp_unset_lock(&THREAD_LOCK)')))
+        params = (
+            ('no_openmp', dict(openmp_import='',
+                               nogil_block='with nogil:',
+                               range_block='range',
+                               thread_num='0',
+                               lock_init='',
+                               lock_acquire='',
+                               lock_release='')),
+            ('openmp', dict(openmp_import=openmp_import,
+                            nogil_block='with nogil, parallel(num_threads=num_threads):',
+                            range_block='prange',
+                            thread_num='openmp.omp_get_thread_num()',
+                            lock_init=lock_init,
+                            lock_acquire='openmp.omp_set_lock(&THREAD_LOCK)',
+                            lock_release='openmp.omp_unset_lock(&THREAD_LOCK)')),
+        )
 
-        file_dir = os.path.join(os.path.dirname(__file__),
-                                'lightfm')
+        file_dir = os.path.join(os.path.dirname(__file__), 'lightfm')
 
-        with open(os.path.join(file_dir,
-                               '_lightfm_fast.pyx.template'), 'r') as fl:
+        with open(os.path.join(file_dir, '_lightfm_fast.pyx.template'), 'r') as fl:
             template = fl.read()
 
         for variant, template_params in params:
-            with open(os.path.join(file_dir,
-                                   '_lightfm_fast_{}.pyx'.format(variant)),
-                      'w') as fl:
+            with open(os.path.join(file_dir, '_lightfm_fast_{}.pyx'.format(variant)), 'w') as fl:
                 fl.write(template.format(**template_params))
 
     def run(self):

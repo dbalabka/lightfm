@@ -49,3 +49,10 @@ check: pep8
 
 pep8:
 	$(PEP8) $(SOURCE_DIR) $(TESTS_DIR) $(BIN_DIR)
+
+compile:
+	python setup.py cythonize
+	python setup.py build_ext --inplace
+
+bump:
+	@bumpversion --tag patch
