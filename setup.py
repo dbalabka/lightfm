@@ -26,12 +26,20 @@ def define_extensions(use_openmp):
         print('Compiling without OpenMP support.')
         return [Extension("lightfm._lightfm_fast_no_openmp",
                           ['lightfm/_lightfm_fast_no_openmp.c'],
-                          extra_compile_args=compile_args)]
+                          extra_compile_args=compile_args,
+                          define_macros=[('CYTHON_TRACE', '1')],
+                          ),
+                ]
     else:
-        return [Extension("lightfm._lightfm_fast_openmp",
-                          ['lightfm/_lightfm_fast_openmp.c'],
-                          extra_link_args=["-fopenmp"],
-                          extra_compile_args=compile_args + ['-fopenmp'])]
+        return [
+            Extension(
+                "lightfm._lightfm_fast_openmp",
+                ['lightfm/_lightfm_fast_openmp.c'],
+                extra_link_args=["-fopenmp"],
+                extra_compile_args=compile_args + ['-fopenmp'],
+                define_macros=[('CYTHON_TRACE', '1')],
+            ),
+        ]
 
 
 class Cythonize(Command):
@@ -89,11 +97,21 @@ class Cythonize(Command):
 
         self.generate_pyx()
 
-        cythonize([Extension("lightfm._lightfm_fast_no_openmp",
-                             ['lightfm/_lightfm_fast_no_openmp.pyx']),
-                   Extension("lightfm._lightfm_fast_openmp",
-                             ['lightfm/_lightfm_fast_openmp.pyx'],
-                             extra_link_args=['-fopenmp'])])
+
+        cythonize([
+            Extension(
+                "lightfm._lightfm_fast_no_openmp",
+                ['lightfm/_lightfm_fast_no_openmp.pyx'],
+                define_macros=[('CYTHON_TRACE', '1')],
+                compiler_directives={'linetrace': True, 'binding': True},
+            ),
+            Extension(
+                "lightfm._lightfm_fast_openmp",
+                ['lightfm/_lightfm_fast_openmp.pyx'],
+                extra_link_args=['-fopenmp'],
+                define_macros=[('CYTHON_TRACE', '1')],
+                compiler_directives={'linetrace': True, 'binding': True},
+            )])
 
 
 class Clean(Command):
