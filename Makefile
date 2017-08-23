@@ -42,6 +42,7 @@ clean-test:
 	rm -rf $(COVERAGE_HTML_REPORT_DIR)
 
 test:
+	compile
 	- pip install -e .;
 	py.test -v tests
 
