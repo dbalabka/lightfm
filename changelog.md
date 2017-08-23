@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.13.x]
+### Added
+- speedup
+
 ## [unreleased][unreleased]
 ### Added
 - added additional input checks for non-normal inputs (NaNs, infinites) for features
