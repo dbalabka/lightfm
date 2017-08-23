@@ -12,7 +12,7 @@ __builtins__.__LIGHTFM_SETUP__ = True
 
 
 def define_extensions(use_openmp):
-    compile_args = ['-ffast-math']
+    compile_args = ['-ffast-math', '-O2']
 
     # There are problems with illegal ASM instructions
     # when using the Anaconda distribution (at least on OSX).
@@ -29,8 +29,8 @@ def define_extensions(use_openmp):
                 "lightfm._lightfm_fast_no_openmp",
                 ['lightfm/_lightfm_fast_no_openmp.c'],
                 extra_compile_args=compile_args,
-                define_macros=[('CYTHON_TRACE_NOGIL', '1')],
-                compiler_directives={'linetrace': True, 'binding': True},
+                #define_macros=[('CYTHON_TRACE_NOGIL', '1')],
+                #compiler_directives={'linetrace': True, 'binding': True},
             ),
         ]
     else:
@@ -40,7 +40,7 @@ def define_extensions(use_openmp):
                 ['lightfm/_lightfm_fast_openmp.c'],
                 extra_link_args=["-fopenmp"],
                 extra_compile_args=compile_args + ['-fopenmp'],
-                define_macros=[('CYTHON_TRACE_NOGIL', '1')],
+                #define_macros=[('CYTHON_TRACE_NOGIL', '1')],
             ),
         ]
 
@@ -105,17 +105,17 @@ class Cythonize(Command):
             Extension(
                 "lightfm._lightfm_fast_no_openmp",
                 ['lightfm/_lightfm_fast_no_openmp.pyx'],
-                define_macros=[('CYTHON_TRACE_NOGIL', '1')],
-                compiler_directives={'linetrace': True, 'binding': True},
+                # define_macros=[('CYTHON_TRACE_NOGIL', '1')],
+                # compiler_directives={'linetrace': True, 'binding': True},
             ),
             Extension(
                 "lightfm._lightfm_fast_openmp",
                 ['lightfm/_lightfm_fast_openmp.pyx'],
                 extra_link_args=['-fopenmp'],
-                define_macros=[('CYTHON_TRACE_NOGIL', '1')],
-                compiler_directives={'linetrace': True, 'binding': True},
+                # define_macros=[('CYTHON_TRACE_NOGIL', '1')],
+                # compiler_directives={'linetrace': True, 'binding': True},
             )],
-            compiler_directives={'linetrace': True, 'binding': True},
+            # compiler_directives={'linetrace': True, 'binding': True},
         )
 
 
