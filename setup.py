@@ -24,12 +24,14 @@ def define_extensions(use_openmp):
 
     if not use_openmp:
         print('Compiling without OpenMP support.')
-        return [Extension("lightfm._lightfm_fast_no_openmp",
-                          ['lightfm/_lightfm_fast_no_openmp.c'],
-                          extra_compile_args=compile_args,
-                          define_macros=[('CYTHON_TRACE', '1')],
-                          ),
-                ]
+        return [
+            Extension(
+                "lightfm._lightfm_fast_no_openmp",
+                ['lightfm/_lightfm_fast_no_openmp.c'],
+                extra_compile_args=compile_args,
+                define_macros=[('CYTHON_TRACE_NOGIL', '1')],
+            ),
+        ]
     else:
         return [
             Extension(
@@ -37,7 +39,7 @@ def define_extensions(use_openmp):
                 ['lightfm/_lightfm_fast_openmp.c'],
                 extra_link_args=["-fopenmp"],
                 extra_compile_args=compile_args + ['-fopenmp'],
-                define_macros=[('CYTHON_TRACE', '1')],
+                define_macros=[('CYTHON_TRACE_NOGIL', '1')],
             ),
         ]
 
@@ -102,14 +104,14 @@ class Cythonize(Command):
             Extension(
                 "lightfm._lightfm_fast_no_openmp",
                 ['lightfm/_lightfm_fast_no_openmp.pyx'],
-                define_macros=[('CYTHON_TRACE', '1')],
+                define_macros=[('CYTHON_TRACE_NOGIL', '1')],
                 compiler_directives={'linetrace': True, 'binding': True},
             ),
             Extension(
                 "lightfm._lightfm_fast_openmp",
                 ['lightfm/_lightfm_fast_openmp.pyx'],
                 extra_link_args=['-fopenmp'],
-                define_macros=[('CYTHON_TRACE', '1')],
+                define_macros=[('CYTHON_TRACE_NOGIL', '1')],
                 compiler_directives={'linetrace': True, 'binding': True},
             )])
 
