@@ -143,10 +143,9 @@ use_openmp = not sys.platform.startswith('darwin') and not sys.platform.startswi
 
 setup(
     name='lightfm',
-    version='1.13',
+    version='1.13.0',
     description='LightFM recommendation model',
     url='https://github.com/lyst/lightfm',
-    download_url='https://github.com/lyst/lightfm/tarball/{}'.format(version),
     packages=['lightfm', 'lightfm.datasets'],
     package_data={'': ['*.c']},
     install_requires=['numpy', 'scipy>=0.17.0', 'requests'],
