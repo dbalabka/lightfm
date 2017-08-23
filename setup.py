@@ -10,6 +10,15 @@ from setuptools.command.test import test as TestCommand
 # Import version even when extensions are not yet built
 __builtins__.__LIGHTFM_SETUP__ = True
 
+ENABLE_PROFILING = False
+
+if ENABLE_PROFILING:
+    define_macros = [('CYTHON_TRACE_NOGIL', '1')]
+    compiler_directives = {'linetrace': True, 'binding': True}
+else:
+    define_macros = []
+    compiler_directives = {}
+
 
 def define_extensions(use_openmp):
     compile_args = ['-ffast-math', '-O2']
@@ -29,8 +38,7 @@ def define_extensions(use_openmp):
                 "lightfm._lightfm_fast_no_openmp",
                 ['lightfm/_lightfm_fast_no_openmp.c'],
                 extra_compile_args=compile_args,
-                #define_macros=[('CYTHON_TRACE_NOGIL', '1')],
-                #compiler_directives={'linetrace': True, 'binding': True},
+                define_macros=define_macros,
             ),
         ]
     else:
@@ -40,7 +48,7 @@ def define_extensions(use_openmp):
                 ['lightfm/_lightfm_fast_openmp.c'],
                 extra_link_args=["-fopenmp"],
                 extra_compile_args=compile_args + ['-fopenmp'],
-                #define_macros=[('CYTHON_TRACE_NOGIL', '1')],
+                define_macros=define_macros,
             ),
         ]
 
@@ -70,20 +78,22 @@ class Cythonize(Command):
         """)
 
         params = (
-            ('no_openmp', dict(openmp_import='',
-                               nogil_block='with nogil:',
-                               range_block='range',
-                               thread_num='0',
-                               lock_init='',
-                               lock_acquire='',
-                               lock_release='')),
-            ('openmp', dict(openmp_import=openmp_import,
-                            nogil_block='with nogil, parallel(num_threads=num_threads):',
-                            range_block='prange',
-                            thread_num='openmp.omp_get_thread_num()',
-                            lock_init=lock_init,
-                            lock_acquire='openmp.omp_set_lock(&THREAD_LOCK)',
-                            lock_release='openmp.omp_unset_lock(&THREAD_LOCK)')),
+            ('no_openmp', dict(
+                openmp_import='',
+                nogil_block='with nogil:',
+                range_block='range',
+                thread_num='0',
+                lock_init='',
+                lock_acquire='',
+                lock_release='')),
+            ('openmp', dict(
+                openmp_import=openmp_import,
+                nogil_block='with nogil, parallel(num_threads=num_threads):',
+                range_block='prange',
+                thread_num='openmp.omp_get_thread_num()',
+                lock_init=lock_init,
+                lock_acquire='openmp.omp_set_lock(&THREAD_LOCK)',
+                lock_release='openmp.omp_unset_lock(&THREAD_LOCK)')),
         )
 
         file_dir = os.path.join(os.path.dirname(__file__), 'lightfm')
@@ -105,17 +115,17 @@ class Cythonize(Command):
             Extension(
                 "lightfm._lightfm_fast_no_openmp",
                 ['lightfm/_lightfm_fast_no_openmp.pyx'],
-                # define_macros=[('CYTHON_TRACE_NOGIL', '1')],
-                # compiler_directives={'linetrace': True, 'binding': True},
+                define_macros=define_macros,
+                compiler_directives=compiler_directives,
             ),
             Extension(
                 "lightfm._lightfm_fast_openmp",
                 ['lightfm/_lightfm_fast_openmp.pyx'],
                 extra_link_args=['-fopenmp'],
-                # define_macros=[('CYTHON_TRACE_NOGIL', '1')],
-                # compiler_directives={'linetrace': True, 'binding': True},
+                define_macros=define_macros,
+                compiler_directives=compiler_directives,
             )],
-            # compiler_directives={'linetrace': True, 'binding': True},
+            compiler_directives=compiler_directives,
         )
 
 
@@ -137,10 +147,8 @@ class Clean(Command):
 
         subprocess.call(['rm', '-rf', os.path.join(pth, 'build')])
         subprocess.call(['rm', '-rf', os.path.join(pth, 'lightfm.egg-info')])
-        subprocess.call(
-            ['find', pth, '-name', 'lightfm*.pyc', '-type', 'f', '-delete'])
-        subprocess.call(
-            ['rm', os.path.join(pth, 'lightfm', '_lightfm_fast.so')])
+        subprocess.call(['find', pth, '-name', 'lightfm*.pyc', '-type', 'f', '-delete'])
+        subprocess.call(['rm', os.path.join(pth, 'lightfm', '_lightfm_fast.so')])
 
 
 class PyTest(TestCommand):
