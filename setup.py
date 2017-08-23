@@ -30,6 +30,7 @@ def define_extensions(use_openmp):
                 ['lightfm/_lightfm_fast_no_openmp.c'],
                 extra_compile_args=compile_args,
                 define_macros=[('CYTHON_TRACE_NOGIL', '1')],
+                compiler_directives={'linetrace': True, 'binding': True},
             ),
         ]
     else:
@@ -40,6 +41,7 @@ def define_extensions(use_openmp):
                 extra_link_args=["-fopenmp"],
                 extra_compile_args=compile_args + ['-fopenmp'],
                 define_macros=[('CYTHON_TRACE_NOGIL', '1')],
+                compiler_directives={'linetrace': True, 'binding': True},
             ),
         ]
 
