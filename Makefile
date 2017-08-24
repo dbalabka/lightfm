@@ -20,6 +20,7 @@ examples:
 	mv examples/movielens/warp_loss.rst doc/examples/
 	cp -r examples/movielens/warp_loss_files doc/examples/
 	rm -rf examples/movielens/warp_loss_files
+
 .PHONY: update-docs
 update-docs:
 	pip install -e . \
@@ -41,8 +42,7 @@ clean-pyc:
 clean-test:
 	rm -rf $(COVERAGE_HTML_REPORT_DIR)
 
-test:
-	compile
+test: compile
 	- pip install -e .;
 	py.test -v tests
 
