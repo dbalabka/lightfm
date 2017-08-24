@@ -57,7 +57,7 @@ def test_coo_with_duplicate_entries():
     mat.col = np.concatenate((mat.col, mat.col[:1000]))
 
     for loss in ('warp', 'bpr', 'warp-kos'):
-        model = LightFM(loss='warp')
+        model = LightFM(loss=loss)
         model.fit(mat)
 
 
@@ -161,19 +161,16 @@ def test_sample_weight():
         # Wrong number of weights
         sample_weight = sp.coo_matrix(np.zeros((2, 2)))
 
-        model.fit(train,
-                  sample_weight=sample_weight)
+        model.fit(train, sample_weight=sample_weight)
 
     with pytest.raises(ValueError):
         # Wrong shape
         sample_weight = sp.coo_matrix(np.zeros(2))
-        model.fit(train,
-                  sample_weight=np.zeros(3))
+        model.fit(train, sample_weight=sample_weight)
 
     with pytest.raises(ValueError):
         # Wrong order of entries
-        sample_weight = sp.coo_matrix((train.data, (train.row[::-1], train.col[::-1])))
-        model.fit(train, sample_weight=np.zeros(3))
+        model.fit(train, sample_weight=sample_weight)
 
     sample_weight = sp.coo_matrix((train.data, (train.row, train.col)))
     model.fit(train, sample_weight=sample_weight)
