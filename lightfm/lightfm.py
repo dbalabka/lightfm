@@ -939,3 +939,24 @@ class LightFM(object):
             setattr(self, key, value)
 
         return self
+
+    @staticmethod
+    def precompute_representation(
+            features: sp.csr_matrix,
+            feature_embeddings: np.ndarray,
+            feature_biases: np.ndarray,
+            scale: float) -> np.ndarray:
+        """
+        :param: features           csr_matrix         [n_objects, n_features]
+        :param: feature_embeddings np.ndarray(float)  [n_features, no_component]
+        :param: feature_biases     np.ndarray(float)  [n_features]
+        :param: scale (learnt from factorization)
+
+        :return: representation    np.ndarray(float)  [n_objects, no_component+1]
+        """
+
+        feature_embeddings = feature_embeddings * scale
+        representation = features.dot(feature_embeddings)
+        representation = np.hstack([representation, features.dot(feature_biases).reshape(-1, 1)])
+
+        return representation

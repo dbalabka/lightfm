@@ -307,6 +307,7 @@ cdef inline void compute_representation(CSRMatrix features,
         representation[i] = 0.0
 
     # TODO: matrix operations
+    # For every feature in row
     for i in range(start_index, stop_index):
 
         feature = features.indices[i]

@@ -378,3 +378,17 @@ def test_nan_interactions():
 
     with pytest.raises(ValueError):
         model.fit(train)
+
+
+def test_precompute_representation():
+    n_users = 1 * 10 ** 3
+    n_user_features = 100
+    no_component = 50
+    user_features = sp.random(n_users, n_user_features, density=0.1)
+    feature_embeddings = np.random.uniform(size=(n_user_features, no_component))
+    feature_biases = np.random.uniform(size=n_user_features)
+    scale = 1.1
+    features = user_features
+
+    representation = LightFM.precompute_representation(features, feature_embeddings, feature_biases, scale)
+    assert representation.shape == (n_users, no_component + 1)
