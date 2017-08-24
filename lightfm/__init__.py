@@ -3,6 +3,6 @@ try:
 except NameError:
     from .lightfm import LightFM
 
-__version__ = '1.13.3'
+__version__ = '1.13.4'
 
 __all__ = ['LightFM', 'datasets', 'evaluation']
