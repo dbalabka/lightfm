@@ -2,16 +2,15 @@
 from typing import Union
 
 import numpy as np
-
 import scipy.sparse as sp
 
-from ._lightfm_fast import (CSRMatrix, FastLightFM,
-                            fit_bpr, fit_logistic, fit_warp,
-                            fit_warp_kos, predict_lightfm, predict_ranks)
+from ._lightfm_fast import CSRMatrix, FastLightFM, fit_bpr, fit_logistic
+from ._lightfm_fast import fit_warp, fit_warp_kos, predict_lightfm, predict_ranks
 
 __all__ = ['LightFM']
 
 CYTHON_DTYPE = np.float32
+ID_DTYPE = np.int32
 
 
 class LightFM(object):
@@ -288,7 +287,7 @@ class LightFM(object):
 
         if self.item_embeddings is not None:
             if not self.item_embeddings.shape[0] >= item_features.shape[1]:
-                raise ValueError('The user feature matrix specifies more '
+                raise ValueError('The item feature matrix specifies more '
                                  'features than there are estimated '
                                  'feature embeddings: {} vs {}.'.format(
                     self.item_embeddings.shape[0],
@@ -378,24 +377,26 @@ class LightFM(object):
 
     def _get_lightfm_data(self):
 
-        lightfm_data = FastLightFM(self.item_embeddings,
-                                   self.item_embedding_gradients,
-                                   self.item_embedding_momentum,
-                                   self.item_biases,
-                                   self.item_bias_gradients,
-                                   self.item_bias_momentum,
-                                   self.user_embeddings,
-                                   self.user_embedding_gradients,
-                                   self.user_embedding_momentum,
-                                   self.user_biases,
-                                   self.user_bias_gradients,
-                                   self.user_bias_momentum,
-                                   self.no_components,
-                                   int(self.learning_schedule == 'adadelta'),
-                                   self.learning_rate,
-                                   self.rho,
-                                   self.epsilon,
-                                   self.max_sampled)
+        lightfm_data = FastLightFM(
+            self.item_embeddings,
+            self.item_embedding_gradients,
+            self.item_embedding_momentum,
+            self.item_biases,
+            self.item_bias_gradients,
+            self.item_bias_momentum,
+            self.user_embeddings,
+            self.user_embedding_gradients,
+            self.user_embedding_momentum,
+            self.user_biases,
+            self.user_bias_gradients,
+            self.user_bias_momentum,
+            self.no_components,
+            int(self.learning_schedule == 'adadelta'),
+            self.learning_rate,
+            self.rho,
+            self.epsilon,
+            self.max_sampled,
+        )
 
         return lightfm_data
 
@@ -469,18 +470,25 @@ class LightFM(object):
         # Discard old results, if any
         self._reset_state()
 
-        return self.fit_partial(interactions,
-                                user_features=user_features,
-                                item_features=item_features,
-                                sample_weight=sample_weight,
-                                epochs=epochs,
-                                num_threads=num_threads,
-                                verbose=verbose)
+        return self.fit_partial(
+            interactions,
+            user_features=user_features,
+            item_features=item_features,
+            sample_weight=sample_weight,
+            epochs=epochs,
+            num_threads=num_threads,
+            verbose=verbose,
+        )
 
-    def fit_partial(self, interactions,
-                    user_features=None, item_features=None,
-                    sample_weight=None,
-                    epochs=1, num_threads=1, verbose=False):
+    def fit_partial(
+            self,
+            interactions,
+            user_features=None,
+            item_features=None,
+            sample_weight=None,
+            epochs=1,
+            num_threads=1,
+            verbose=False):
         """
         Fit the model.
 
@@ -532,32 +540,26 @@ class LightFM(object):
         if interactions.dtype != CYTHON_DTYPE:
             interactions.data = interactions.data.astype(CYTHON_DTYPE)
 
-        sample_weight_data = self._process_sample_weight(interactions,
-                                                         sample_weight)
+        sample_weight_data = self._process_sample_weight(interactions, sample_weight)
 
         n_users, n_items = interactions.shape
-        (user_features,
-         item_features) = self._construct_feature_matrices(n_users,
-                                                           n_items,
-                                                           user_features,
-                                                           item_features)
+        (user_features, item_features) = self._construct_feature_matrices(
+            n_users,
+            n_items,
+            user_features,
+            item_features)
 
         sample_weight = (self._to_cython_dtype(sample_weight)
                          if sample_weight is not None else
-                         np.ones(interactions.getnnz(),
-                                 dtype=CYTHON_DTYPE))
+                         np.ones(interactions.getnnz(), dtype=CYTHON_DTYPE))
 
-        for input_data in (user_features.data,
-                           item_features.data,
-                           interactions.data,
-                           sample_weight):
+        for input_data in (user_features.data, item_features.data, interactions.data, sample_weight):
             self._check_input_finite(input_data)
+
         if self.item_embeddings is None:
             # Initialise latent factors only if this is the first call
             # to fit_partial.
-            self._initialize(self.no_components,
-                             item_features.shape[1],
-                             user_features.shape[1])
+            self._initialize(self.no_components, item_features.shape[1], user_features.shape[1])
 
         # Check that the dimensionality of the feature matrices has
         # not changed between runs.
@@ -572,12 +574,7 @@ class LightFM(object):
             if verbose:
                 print('Epoch %s' % epoch)
 
-            self._run_epoch(item_features,
-                            user_features,
-                            interactions,
-                            sample_weight_data,
-                            num_threads,
-                            self.loss)
+            self._run_epoch(item_features, user_features, interactions, sample_weight_data, num_threads, self.loss)
 
             self._check_finite()
 
@@ -592,8 +589,7 @@ class LightFM(object):
         if loss in ('warp', 'bpr', 'warp-kos'):
             # The CSR conversion needs to happen before shuffle indices are created.
             # Calling .tocsr may result in a change in the data arrays of the COO matrix,
-            positives_lookup = CSRMatrix(
-                self._get_positives_lookup_matrix(interactions))
+            positives_lookup = CSRMatrix(self._get_positives_lookup_matrix(interactions))
 
         # Create shuffle indexes.
         shuffle_indices = np.arange(len(interactions.data), dtype=np.int32)
@@ -603,62 +599,66 @@ class LightFM(object):
 
         # Call the estimation routines.
         if loss == 'warp':
-            fit_warp(CSRMatrix(item_features),
-                     CSRMatrix(user_features),
-                     positives_lookup,
-                     interactions.row,
-                     interactions.col,
-                     interactions.data,
-                     sample_weight,
-                     shuffle_indices,
-                     lightfm_data,
-                     self.learning_rate,
-                     self.item_alpha,
-                     self.user_alpha,
-                     num_threads,
-                     self.random_state)
+            fit_warp(
+                CSRMatrix(item_features),
+                CSRMatrix(user_features),
+                positives_lookup,
+                interactions.row,
+                interactions.col,
+                interactions.data,
+                sample_weight,
+                shuffle_indices,
+                lightfm_data,
+                self.learning_rate,
+                self.item_alpha,
+                self.user_alpha,
+                num_threads,
+                self.random_state)
         elif loss == 'bpr':
-            fit_bpr(CSRMatrix(item_features),
-                    CSRMatrix(user_features),
-                    positives_lookup,
-                    interactions.row,
-                    interactions.col,
-                    interactions.data,
-                    sample_weight,
-                    shuffle_indices,
-                    lightfm_data,
-                    self.learning_rate,
-                    self.item_alpha,
-                    self.user_alpha,
-                    num_threads,
-                    self.random_state)
+            fit_bpr(
+                CSRMatrix(item_features),
+                CSRMatrix(user_features),
+                positives_lookup,
+                interactions.row,
+                interactions.col,
+                interactions.data,
+                sample_weight,
+                shuffle_indices,
+                lightfm_data,
+                self.learning_rate,
+                self.item_alpha,
+                self.user_alpha,
+                num_threads,
+                self.random_state)
         elif loss == 'warp-kos':
-            fit_warp_kos(CSRMatrix(item_features),
-                         CSRMatrix(user_features),
-                         positives_lookup,
-                         interactions.row,
-                         shuffle_indices,
-                         lightfm_data,
-                         self.learning_rate,
-                         self.item_alpha,
-                         self.user_alpha,
-                         self.k,
-                         self.n,
-                         num_threads,
-                         self.random_state)
+            fit_warp_kos(
+                CSRMatrix(item_features),
+                CSRMatrix(user_features),
+                positives_lookup,
+                interactions.row,
+                shuffle_indices,
+                lightfm_data,
+                self.learning_rate,
+                self.item_alpha,
+                self.user_alpha,
+                self.k,
+                self.n,
+                num_threads,
+                self.random_state)
         else:
-            fit_logistic(CSRMatrix(item_features),
-                         CSRMatrix(user_features),
-                         interactions.row,
-                         interactions.col,
-                         interactions.data,
-                         sample_weight,
-                         shuffle_indices,
-                         lightfm_data,
-                         self.learning_rate,
-                         self.item_alpha,
-                         self.user_alpha,
-                         num_threads)
+            fit_logistic(
+                CSRMatrix(item_features),
+                CSRMatrix(user_features),
+                interactions.row,
+                interactions.col,
+                interactions.data,
+                sample_weight,
+                shuffle_indices,
+                lightfm_data,
+                self.learning_rate,
+                self.item_alpha,
+                self.user_alpha,
+                num_threads)
 
     def predict(self,
                 user_ids: Union[int, np.ndarray],
@@ -707,7 +707,7 @@ class LightFM(object):
 
         assert len(user_ids) == len(item_ids)
 
-        if user_ids.dtype != np.int32:
+        if user_ids.dtype != ID_DTYPE:
             user_ids = user_ids.astype(np.int32)
         if item_ids.dtype != np.int32:
             # TODO: force all item ids to int32 one at initial recommend
@@ -738,6 +738,47 @@ class LightFM(object):
         )
 
         return predictions
+
+    def batch_setup(self,
+                    item_ids: np.ndarray,
+                    item_features: Union[None, sp.csr_matrix]=None,
+                    user_features: Union[None, sp.csr_matrix]=None):
+
+        # TODO: force all item ids to int32 one at initial recommend
+        if item_ids.dtype != np.int32:
+            item_ids = item_ids.astype(np.int32)
+
+        n_users = user_features.shape[0]
+        user_features = self._construct_user_features(n_users, user_features)
+        self._user_features = CSRMatrix(user_features)
+
+        n_items = item_features.shape[0]
+        item_features = self._construct_item_features(n_items, item_features)
+        self._item_features = CSRMatrix(item_features)
+
+        self.item_ids = item_ids
+        self.predictions = np.empty(len(item_ids), dtype=np.float64)
+        self._lightfm_data = self._get_lightfm_data()
+
+    def batch_predict(self,
+                      user_ids: Union[int, np.ndarray],
+                      item_ids: np.ndarray) -> np.ndarray:
+
+        # TODO: omg, clean this up
+        if not isinstance(user_ids, np.ndarray):
+            user_ids = np.repeat(np.int32(user_ids), len(item_ids))
+
+        predict_lightfm(
+            self._item_features,
+            self._user_features,
+            user_ids,
+            self.item_ids,
+            self.predictions,
+            self._lightfm_data,
+            num_threads=1,
+        )
+
+        return self.predictions
 
     def predict_rank(self, test_interactions, train_interactions=None,
                      item_features=None, user_features=None, num_threads=1):
@@ -787,11 +828,12 @@ class LightFM(object):
 
         n_users, n_items = test_interactions.shape
 
-        (user_features,
-         item_features) = self._construct_feature_matrices(n_users,
-                                                           n_items,
-                                                           user_features,
-                                                           item_features)
+        (user_features, item_features) = self._construct_feature_matrices(
+            n_users,
+            n_items,
+            user_features,
+            item_features,
+        )
 
         if not item_features.shape[1] == self.item_embeddings.shape[0]:
             raise ValueError('Incorrect number of features in item_features')
@@ -803,26 +845,27 @@ class LightFM(object):
         test_interactions = self._to_cython_dtype(test_interactions)
 
         if train_interactions is None:
-            train_interactions = sp.csr_matrix((n_users, n_items),
-                                               dtype=CYTHON_DTYPE)
+            train_interactions = sp.csr_matrix((n_users, n_items), dtype=CYTHON_DTYPE)
         else:
             train_interactions = train_interactions.tocsr()
             train_interactions = self._to_cython_dtype(train_interactions)
 
-        ranks = sp.csr_matrix((np.zeros_like(test_interactions.data),
-                               test_interactions.indices,
-                               test_interactions.indptr),
-                              shape=test_interactions.shape)
+        ranks = sp.csr_matrix(
+            (np.zeros_like(test_interactions.data), test_interactions.indices, test_interactions.indptr),
+            shape=test_interactions.shape,
+        )
 
         lightfm_data = self._get_lightfm_data()
 
-        predict_ranks(CSRMatrix(item_features),
-                      CSRMatrix(user_features),
-                      CSRMatrix(test_interactions),
-                      CSRMatrix(train_interactions),
-                      ranks.data,
-                      lightfm_data,
-                      num_threads)
+        predict_ranks(
+            CSRMatrix(item_features),
+            CSRMatrix(user_features),
+            CSRMatrix(test_interactions),
+            CSRMatrix(train_interactions),
+            ranks.data,
+            lightfm_data,
+            num_threads,
+        )
 
         return ranks
 
@@ -902,18 +945,20 @@ class LightFM(object):
             Parameter names mapped to their values.
         """
 
-        params = {'loss': self.loss,
-                  'learning_schedule': self.learning_schedule,
-                  'no_components': self.no_components,
-                  'learning_rate': self.learning_rate,
-                  'k': self.k,
-                  'n': self.n,
-                  'rho': self.rho,
-                  'epsilon': self.epsilon,
-                  'max_sampled': self.max_sampled,
-                  'item_alpha': self.item_alpha,
-                  'user_alpha': self.user_alpha,
-                  'random_state': self.random_state}
+        params = {
+            'loss': self.loss,
+            'learning_schedule': self.learning_schedule,
+            'no_components': self.no_components,
+            'learning_rate': self.learning_rate,
+            'k': self.k,
+            'n': self.n,
+            'rho': self.rho,
+            'epsilon': self.epsilon,
+            'max_sampled': self.max_sampled,
+            'item_alpha': self.item_alpha,
+            'user_alpha': self.user_alpha,
+            'random_state': self.random_state,
+        }
 
         return params
 
@@ -960,3 +1005,4 @@ class LightFM(object):
         representation = np.hstack([representation, features.dot(feature_biases).reshape(-1, 1)])
 
         return representation
+

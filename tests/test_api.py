@@ -5,6 +5,7 @@ import pytest
 import scipy.sparse as sp
 
 from lightfm import LightFM
+import lightfm
 
 mattypes = sp.coo_matrix, sp.lil_matrix, sp.csr_matrix, sp.csc_matrix
 dtypes = np.int32, np.int64, np.float32, np.float64
@@ -109,7 +110,6 @@ def test_not_enough_features_fails():
 
 
 def test_feature_inference_fails():
-
     # On predict if we try to use feature inference and supply
     # higher ids than the number of features that were supplied to fit
     # we should complain
@@ -292,10 +292,10 @@ def test_nan_interactions():
 
 
 def test_precompute_representation():
-    n_users = 1 * 10 ** 3
+    n_users = 10 ** 3
     n_user_features = 100
     no_component = 50
-    user_features = sp.random(n_users, n_user_features, density=0.1)
+    user_features = sp.random(n_users, n_user_features, density=.1)
     feature_embeddings = np.random.uniform(size=(n_user_features, no_component))
     feature_biases = np.random.uniform(size=n_user_features)
     scale = 1.1
@@ -303,3 +303,32 @@ def test_precompute_representation():
 
     representation = LightFM.precompute_representation(features, feature_embeddings, feature_biases, scale)
     assert representation.shape == (n_users, no_component + 1)
+
+
+def test_batch_predict():
+    no_users, no_items = 5, 100
+    no_features = 20
+    user_features = sp.random(no_users, no_features, density=.2, dtype=lightfm.CYTHON_DTYPE)
+    item_features = sp.random(no_items, no_features, density=.2, dtype=lightfm.CYTHON_DTYPE)
+
+    train = sp.coo_matrix((no_users, no_items), dtype=np.int32)
+
+    model = LightFM()
+    model.fit_partial(train, user_features=user_features, item_features=item_features)
+
+    model.batch_setup(np.arange(no_items), user_features=user_features, item_features=item_features)
+
+    # TODO: check no setup
+    # TODO: different feature dimensions
+    # TODO: now working only with features
+
+    for uid in range(no_users):
+        original_predict_scores = model.predict(
+            np.repeat(uid, no_items),
+            np.arange(no_items),
+            user_features=user_features,
+            item_features=item_features,
+        )
+        batch_predicted_scores = model.batch_predict(uid, np.arange(no_items))
+        assert np.allclose(original_predict_scores, batch_predicted_scores)
+        assert np.sum(batch_predicted_scores) != 0, 'predictions seems to be all zeros'
