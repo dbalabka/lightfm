@@ -326,7 +326,6 @@ def test_batch_predict():
         user_features=user_features,
         item_features=item_features,
     )
-    # Check fix
     assert np.sum(model._user_repr)
     assert model._user_repr.shape == (no_users, no_components + 1)
     assert np.sum(model._item_repr)
@@ -345,7 +344,9 @@ def test_batch_predict():
             user_features=l_user_features,
             item_features=l_item_features,
         )
-        batch_predicted_scores = model.batch_predict(user_id=uid)
+
+        batch_predicted_scores = model._batch_predict_for_user(user_id=uid)
+
         assert_array_almost_equal(original_predict_scores, batch_predicted_scores)
         # Regression test
         assert np.allclose(original_predict_scores, batch_predicted_scores)
@@ -353,3 +354,26 @@ def test_batch_predict():
         if np.sum(batch_predicted_scores) == 0:
             zeros += 1
     assert zeros < no_users, 'predictions seems to be all zeros'
+
+
+def test_full_batch_predict():
+    # TODO: not finished
+    no_users, no_items = 5, 100
+    no_features = 3
+    no_components = 2
+    item_ids = np.arange(no_items)
+    user_features = sp.random(no_users, no_features, density=.5, dtype=lightfm.CYTHON_DTYPE)
+    item_features = sp.random(no_items, no_features, density=.2, dtype=lightfm.CYTHON_DTYPE)
+    train = sp.coo_matrix((no_users, no_items), dtype=np.int32)
+
+    model = LightFM(no_components=no_components)
+    model.fit_partial(train, user_features=user_features, item_features=item_features)
+
+    recoms = model.batch_predict(
+        user_ids=[0, 1, 2],
+        item_ids=item_ids,
+        user_features=user_features,
+        item_features=item_features,
+        n_process=2,
+    )
+    assert recoms == {}

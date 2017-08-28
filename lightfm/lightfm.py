@@ -2,6 +2,7 @@
 from typing import Union
 
 import numpy as np
+# import pandas as pd
 import scipy.sparse as sp
 
 from ._lightfm_fast import CSRMatrix, FastLightFM, fit_bpr, fit_logistic
@@ -13,7 +14,7 @@ CYTHON_DTYPE = np.float32
 ID_DTYPE = np.int32
 
 
-class LightFM(object):
+class LightFM:
     """
     A hybrid latent representation recommender model.
 
@@ -158,11 +159,18 @@ class LightFM(object):
            arXiv preprint arXiv:1212.5701 (2012).
     """
 
-    def __init__(self, no_components=10, k=5, n=10,
+    def __init__(self,
+                 no_components=10,
+                 k=5,
+                 n=10,
                  learning_schedule='adagrad',
                  loss='logistic',
-                 learning_rate=0.05, rho=0.95, epsilon=1e-6,
-                 item_alpha=0.0, user_alpha=0.0, max_sampled=10,
+                 learning_rate=0.05,
+                 rho=0.95,
+                 epsilon=1e-6,
+                 item_alpha=0.0,
+                 user_alpha=0.0,
+                 max_sampled=10,
                  random_state=None):
 
         assert item_alpha >= 0.0
@@ -801,7 +809,8 @@ class LightFM(object):
         self.predictions = np.empty(len(item_ids), dtype=CYTHON_DTYPE)
         self.item_ids = item_ids
 
-    def batch_predict(self, user_id: int) -> np.ndarray:
+    def _batch_predict_for_user(self, user_id: int, n_recs_per_user: int=50) -> np.ndarray:
+        # TODO: move to separate method and global variables
         predictions = np.zeros(len(self.item_ids), dtype=CYTHON_DTYPE)
 
         batch_predict_lightfm(
@@ -809,8 +818,23 @@ class LightFM(object):
             item_repr=self._item_repr,
             predictions=predictions,
         )
+        # TODO: filter and test
 
         return predictions
+
+    def batch_predict(
+            self,
+            user_ids: Union[np.ndarray, list],
+            item_ids: np.ndarray,
+            user_features: Union[sp.csr_matrix, None],
+            item_features: Union[sp.csr_matrix, None],
+            n_process: int=1,
+            n_recs_per_user: int=50,
+    ) -> dict:
+        # TODO: not finished
+        if not isinstance(user_ids, np.ndarray):
+            user_ids = np.array(user_ids, dtype=ID_DTYPE)
+        return dict()
 
     def predict_rank(self, test_interactions, train_interactions=None,
                      item_features=None, user_features=None, num_threads=1):
