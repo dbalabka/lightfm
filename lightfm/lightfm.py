@@ -4,7 +4,7 @@ from typing import Union
 import numpy as np
 import scipy.sparse as sp
 
-from ._lightfm_fast import CSRMatrix, FastLightFM, fit_bpr, fit_logistic, compute_representation_full
+from ._lightfm_fast import CSRMatrix, FastLightFM, fit_bpr, fit_logistic
 from ._lightfm_fast import fit_warp, fit_warp_kos, predict_lightfm, predict_ranks, batch_predict_lightfm
 
 __all__ = ['LightFM']
@@ -802,35 +802,15 @@ class LightFM(object):
         self.item_ids = item_ids
 
     def batch_predict(self, user_id: int) -> np.ndarray:
-        self.predictions = np.zeros(len(self.item_ids), dtype=CYTHON_DTYPE)
+        predictions = np.zeros(len(self.item_ids), dtype=CYTHON_DTYPE)
 
         batch_predict_lightfm(
             user_repr=self._user_repr[user_id, :],
             item_repr=self._item_repr,
-            predictions=self.predictions,
+            predictions=predictions,
         )
 
-        return self.predictions
-
-    def compute_user_repr_full(self, user_idx: int) -> np.ndarray:
-        # TODO: delete me?
-        return compute_representation_full(
-            self._user_features,
-            self.user_embeddings,
-            self.user_biases,
-            self.no_components,
-            user_idx,
-        )
-
-    def compute_item_repr_full(self, item_idx: int) -> np.ndarray:
-        # TODO: delete me?
-        return compute_representation_full(
-            self._item_features,
-            self.item_embeddings,
-            self.item_biases,
-            self.no_components,
-            item_idx,
-        )
+        return predictions
 
     def predict_rank(self, test_interactions, train_interactions=None,
                      item_features=None, user_features=None, num_threads=1):

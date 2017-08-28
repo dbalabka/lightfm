@@ -11,7 +11,7 @@ from setuptools.command.test import test as TestCommand
 # Import version even when extensions are not yet built
 __builtins__.__LIGHTFM_SETUP__ = True
 
-compile_args = ['-ffast-math', '-O2']
+compile_args = ['-ffast-math', '-O3', '-march=native', '-msse4.2']
 ENABLE_PROFILING = False
 
 if ENABLE_PROFILING:
@@ -31,9 +31,6 @@ def define_extensions(use_openmp):
     # know we're dealing with Anaconda
     if 'anaconda' not in sys.version.lower():
         compile_args.append('-march=native')
-
-    print('np. includes', '=' * 100)
-    print(np.get_include())
 
     if not use_openmp:
         print('Compiling without OpenMP support.')

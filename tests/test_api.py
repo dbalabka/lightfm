@@ -327,29 +327,18 @@ def test_batch_predict():
         item_features=item_features,
     )
     # Check fix
-    print('user features\n', '-'*20)
-    print(model.user_features.todense())
-    print('user biases\n', '-'*20)
-    print(model.user_biases)
-    print('user repr\n', '-'*20)
-    print(model._user_repr)
     assert np.sum(model._user_repr)
     assert model._user_repr.shape == (no_users, no_components + 1)
     assert np.sum(model._item_repr)
     assert model._item_repr.shape == (no_items, no_components + 1)
 
-    # TODO: check representation
-    print('user 0 orig repr:\n', '-'*20)
-    print(model.compute_user_repr_full(0))
-
-    assert_array_almost_equal(model._user_repr[0,:], model.compute_user_repr_full(0))
-    assert_array_almost_equal(model._item_repr[0,:], model.compute_item_repr_full(0))
-
     # TODO: check no setup
     # TODO: different feature dimensions
     # TODO: now working only with features
+    zeros = 0
 
     for uid in range(no_users):
+
         original_predict_scores = model.predict(
             np.repeat(uid, no_items),
             np.arange(no_items),
@@ -358,5 +347,9 @@ def test_batch_predict():
         )
         batch_predicted_scores = model.batch_predict(user_id=uid)
         assert_array_almost_equal(original_predict_scores, batch_predicted_scores)
+        # Regression test
         assert np.allclose(original_predict_scores, batch_predicted_scores)
-        # assert np.sum(batch_predicted_scores) != 0, 'predictions seems to be all zeros'
+
+        if np.sum(batch_predicted_scores) == 0:
+            zeros += 1
+    assert zeros < no_users, 'predictions seems to be all zeros'
