@@ -9,11 +9,11 @@ cimport numpy as np
 cimport cython.operator.dereference as deref
 from libc.stdlib cimport free, malloc
 
-{openmp_import}
-
-
 ctypedef float flt
 ctypedef np.float32_t CYTHON_DTYPE_t
+CYTHON_DTYPE = np.float32
+
+{openmp_import}
 
 # Allow sequential code blocks in a parallel setting.
 # Used for applying full regularization in parallel blocks.
@@ -322,6 +322,34 @@ cdef inline void compute_representation(CSRMatrix features,
 
         representation[lightfm.no_components] += feature_weight * feature_biases[feature]
 
+cpdef compute_representation_full(CSRMatrix features,
+                                    flt[:, ::1] feature_embeddings,
+                                    flt[::1] feature_biases,
+                                    int no_components,
+                                    int row_id):
+    """
+    Compute latent representation for row_id.
+    The last element of the representation is the bias.
+    """
+    cdef scale = 1.0
+
+    cdef int i, j, start_index, stop_index, feature
+    cdef flt feature_weight
+
+    start_index = features.get_row_start(row_id)
+    stop_index = features.get_row_end(row_id)
+    representation = np.zeros(no_components + 1, dtype=CYTHON_DTYPE)
+
+    for i in range(start_index, stop_index):
+        feature = features.indices[i]
+        feature_weight = features.data[i] * scale
+
+        for j in range(no_components):
+
+            representation[j] += feature_weight * feature_embeddings[feature, j]
+
+        representation[no_components] += feature_weight * feature_biases[feature]
+    return representation
 
 cdef inline flt compute_prediction_from_repr(flt *user_repr,
                                              flt *item_repr,
@@ -1240,21 +1268,16 @@ def predict_lightfm(CSRMatrix item_features,
         free(it_repr)
 
 
-cpdef batch_predict_lightfm(np.ndarray[CYTHON_DTYPE_t, ndim=1] item_repr,
-                          np.ndarray[CYTHON_DTYPE_t, ndim=1] user_repr,
-                          double[::1] predictions):
-    """
-    """
+cpdef batch_predict_lightfm(np.ndarray[CYTHON_DTYPE_t, ndim=2] item_repr,
+                            np.ndarray[CYTHON_DTYPE_t, ndim=1] user_repr,
+                            np.ndarray[CYTHON_DTYPE_t, ndim=1] predictions):
+    cdef int item_idx, no_item
 
-    cdef int i, no_examples
+    no_items = item_repr.shape[0]
 
-    no_examples = predictions.shape[0]
-
-    for i in range(no_examples):
-        # mb optimize here?
-        # predictions[i] = compute_prediction_from_repr(user_repr, item_repr, lightfm.no_components)
-        # TODO: check thi plz
-        predictions[i] = np.sum(user_repr * item_repr)
+    for item_idx in range(no_items):
+        # TODO: check thi plz, mb optimize?
+        predictions[item_idx] = user_repr.dot(item_repr[item_idx, :])
 
 
 def predict_ranks(CSRMatrix item_features,

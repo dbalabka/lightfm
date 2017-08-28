@@ -4,8 +4,8 @@ from typing import Union
 import numpy as np
 import scipy.sparse as sp
 
-from ._lightfm_fast import CSRMatrix, FastLightFM, fit_bpr, fit_logistic
-from ._lightfm_fast import fit_warp, fit_warp_kos, predict_lightfm, predict_ranks
+from ._lightfm_fast import CSRMatrix, FastLightFM, fit_bpr, fit_logistic, compute_representation_full
+from ._lightfm_fast import fit_warp, fit_warp_kos, predict_lightfm, predict_ranks, batch_predict_lightfm
 
 __all__ = ['LightFM']
 
@@ -739,6 +739,27 @@ class LightFM(object):
 
         return predictions
 
+    @staticmethod
+    def precompute_representation(
+            features: sp.csr_matrix,
+            feature_embeddings: np.ndarray,
+            feature_biases: np.ndarray,
+            scale: float) -> np.ndarray:
+        """
+        :param: features           csr_matrix         [n_objects, n_features]
+        :param: feature_embeddings np.ndarray(float)  [n_features, no_component]
+        :param: feature_biases     np.ndarray(float)  [n_features]
+        :param: scale (learnt from factorization)
+
+        :return: representation    np.ndarray(float)  [n_objects, no_component+1]
+        """
+
+        feature_embeddings = feature_embeddings * scale
+        representation = features.dot(feature_embeddings)
+        representation = np.hstack([representation, features.dot(feature_biases).reshape(-1, 1)])
+
+        return representation
+
     def batch_setup(self,
                     item_ids: np.ndarray,
                     item_features: Union[None, sp.csr_matrix]=None,
@@ -748,37 +769,68 @@ class LightFM(object):
         if item_ids.dtype != np.int32:
             item_ids = item_ids.astype(np.int32)
 
+        self._lightfm_data = self._get_lightfm_data()
+
         n_users = user_features.shape[0]
         user_features = self._construct_user_features(n_users, user_features)
+        self.user_features = user_features
+        self._user_repr = self.precompute_representation(
+            features=user_features,
+            feature_embeddings=self.user_embeddings,
+            feature_biases=self.user_biases,
+            scale=1.0,
+            # TODO: why scale always 1.0 at the beginning?
+            # self._lightfm_data.user_scale,
+        )
         self._user_features = CSRMatrix(user_features)
 
         n_items = item_features.shape[0]
         item_features = self._construct_item_features(n_items, item_features)
+        self.item_features = item_features
+        self._item_repr = self.precompute_representation(
+            item_features,
+            self.item_embeddings,
+            self.item_biases,
+            1.0,
+            # TODO: why scale always 1.0 at the beginning?
+            # self._lightfm_data.item_scale,
+        )
         self._item_features = CSRMatrix(item_features)
 
         self.item_ids = item_ids
-        self.predictions = np.empty(len(item_ids), dtype=np.float64)
-        self._lightfm_data = self._get_lightfm_data()
+        self.predictions = np.empty(len(item_ids), dtype=CYTHON_DTYPE)
+        self.item_ids = item_ids
 
-    def batch_predict(self,
-                      user_ids: Union[int, np.ndarray],
-                      item_ids: np.ndarray) -> np.ndarray:
+    def batch_predict(self, user_id: int) -> np.ndarray:
+        self.predictions = np.zeros(len(self.item_ids), dtype=CYTHON_DTYPE)
 
-        # TODO: omg, clean this up
-        if not isinstance(user_ids, np.ndarray):
-            user_ids = np.repeat(np.int32(user_ids), len(item_ids))
-
-        predict_lightfm(
-            self._item_features,
-            self._user_features,
-            user_ids,
-            self.item_ids,
-            self.predictions,
-            self._lightfm_data,
-            num_threads=1,
+        batch_predict_lightfm(
+            user_repr=self._user_repr[user_id, :],
+            item_repr=self._item_repr,
+            predictions=self.predictions,
         )
 
         return self.predictions
+
+    def compute_user_repr_full(self, user_idx: int) -> np.ndarray:
+        # TODO: delete me?
+        return compute_representation_full(
+            self._user_features,
+            self.user_embeddings,
+            self.user_biases,
+            self.no_components,
+            user_idx,
+        )
+
+    def compute_item_repr_full(self, item_idx: int) -> np.ndarray:
+        # TODO: delete me?
+        return compute_representation_full(
+            self._item_features,
+            self.item_embeddings,
+            self.item_biases,
+            self.no_components,
+            item_idx,
+        )
 
     def predict_rank(self, test_interactions, train_interactions=None,
                      item_features=None, user_features=None, num_threads=1):
@@ -985,24 +1037,4 @@ class LightFM(object):
 
         return self
 
-    @staticmethod
-    def precompute_representation(
-            features: sp.csr_matrix,
-            feature_embeddings: np.ndarray,
-            feature_biases: np.ndarray,
-            scale: float) -> np.ndarray:
-        """
-        :param: features           csr_matrix         [n_objects, n_features]
-        :param: feature_embeddings np.ndarray(float)  [n_features, no_component]
-        :param: feature_biases     np.ndarray(float)  [n_features]
-        :param: scale (learnt from factorization)
-
-        :return: representation    np.ndarray(float)  [n_objects, no_component+1]
-        """
-
-        feature_embeddings = feature_embeddings * scale
-        representation = features.dot(feature_embeddings)
-        representation = np.hstack([representation, features.dot(feature_biases).reshape(-1, 1)])
-
-        return representation
 

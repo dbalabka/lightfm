@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.testing import assert_array_almost_equal
 
 import pytest
 
@@ -307,16 +308,42 @@ def test_precompute_representation():
 
 def test_batch_predict():
     no_users, no_items = 5, 100
-    no_features = 20
-    user_features = sp.random(no_users, no_features, density=.2, dtype=lightfm.CYTHON_DTYPE)
+    no_features = 3
+    no_components = 2
+    user_features = sp.random(no_users, no_features, density=.5, dtype=lightfm.CYTHON_DTYPE)
     item_features = sp.random(no_items, no_features, density=.2, dtype=lightfm.CYTHON_DTYPE)
 
     train = sp.coo_matrix((no_users, no_items), dtype=np.int32)
 
-    model = LightFM()
+    model = LightFM(no_components=no_components)
     model.fit_partial(train, user_features=user_features, item_features=item_features)
 
-    model.batch_setup(np.arange(no_items), user_features=user_features, item_features=item_features)
+    l_user_features = user_features.copy()
+    l_item_features = item_features.copy()
+
+    model.batch_setup(
+        item_ids=np.arange(no_items),
+        user_features=user_features,
+        item_features=item_features,
+    )
+    # Check fix
+    print('user features\n', '-'*20)
+    print(model.user_features.todense())
+    print('user biases\n', '-'*20)
+    print(model.user_biases)
+    print('user repr\n', '-'*20)
+    print(model._user_repr)
+    assert np.sum(model._user_repr)
+    assert model._user_repr.shape == (no_users, no_components + 1)
+    assert np.sum(model._item_repr)
+    assert model._item_repr.shape == (no_items, no_components + 1)
+
+    # TODO: check representation
+    print('user 0 orig repr:\n', '-'*20)
+    print(model.compute_user_repr_full(0))
+
+    assert_array_almost_equal(model._user_repr[0,:], model.compute_user_repr_full(0))
+    assert_array_almost_equal(model._item_repr[0,:], model.compute_item_repr_full(0))
 
     # TODO: check no setup
     # TODO: different feature dimensions
@@ -326,9 +353,10 @@ def test_batch_predict():
         original_predict_scores = model.predict(
             np.repeat(uid, no_items),
             np.arange(no_items),
-            user_features=user_features,
-            item_features=item_features,
+            user_features=l_user_features,
+            item_features=l_item_features,
         )
-        batch_predicted_scores = model.batch_predict(uid, np.arange(no_items))
+        batch_predicted_scores = model.batch_predict(user_id=uid)
+        assert_array_almost_equal(original_predict_scores, batch_predicted_scores)
         assert np.allclose(original_predict_scores, batch_predicted_scores)
-        assert np.sum(batch_predicted_scores) != 0, 'predictions seems to be all zeros'
+        # assert np.sum(batch_predicted_scores) != 0, 'predictions seems to be all zeros'
