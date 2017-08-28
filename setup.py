@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import textwrap
+import numpy as np
 
 from setuptools import Command, Extension, setup
 from setuptools.command.test import test as TestCommand
@@ -10,6 +11,7 @@ from setuptools.command.test import test as TestCommand
 # Import version even when extensions are not yet built
 __builtins__.__LIGHTFM_SETUP__ = True
 
+compile_args = ['-ffast-math', '-O2']
 ENABLE_PROFILING = False
 
 if ENABLE_PROFILING:
@@ -21,7 +23,6 @@ else:
 
 
 def define_extensions(use_openmp):
-    compile_args = ['-ffast-math', '-O2']
 
     # There are problems with illegal ASM instructions
     # when using the Anaconda distribution (at least on OSX).
@@ -31,6 +32,9 @@ def define_extensions(use_openmp):
     if 'anaconda' not in sys.version.lower():
         compile_args.append('-march=native')
 
+    print('np. includes', '=' * 100)
+    print(np.get_include())
+
     if not use_openmp:
         print('Compiling without OpenMP support.')
         return [
@@ -39,6 +43,7 @@ def define_extensions(use_openmp):
                 ['lightfm/_lightfm_fast_no_openmp.c'],
                 extra_compile_args=compile_args,
                 define_macros=define_macros,
+                include_dirs=[np.get_include()],
             ),
         ]
     else:
@@ -49,6 +54,7 @@ def define_extensions(use_openmp):
                 extra_link_args=["-fopenmp"],
                 extra_compile_args=compile_args + ['-fopenmp'],
                 define_macros=define_macros,
+                include_dirs=[np.get_include()],
             ),
         ]
 
@@ -116,14 +122,14 @@ class Cythonize(Command):
                 "lightfm._lightfm_fast_no_openmp",
                 ['lightfm/_lightfm_fast_no_openmp.pyx'],
                 define_macros=define_macros,
-                compiler_directives=compiler_directives,
+                include_dirs=[np.get_include()],
             ),
             Extension(
                 "lightfm._lightfm_fast_openmp",
                 ['lightfm/_lightfm_fast_openmp.pyx'],
                 extra_link_args=['-fopenmp'],
                 define_macros=define_macros,
-                compiler_directives=compiler_directives,
+                include_dirs=[np.get_include()],
             )],
             compiler_directives=compiler_directives,
         )

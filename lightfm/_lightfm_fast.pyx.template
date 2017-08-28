@@ -3,6 +3,8 @@
 
 import numpy as np
 
+cimport numpy as np
+
 # noinspection PyUnresolvedReferences
 cimport cython.operator.dereference as deref
 from libc.stdlib cimport free, malloc
@@ -11,6 +13,7 @@ from libc.stdlib cimport free, malloc
 
 
 ctypedef float flt
+ctypedef np.float32_t CYTHON_DTYPE_t
 
 # Allow sequential code blocks in a parallel setting.
 # Used for applying full regularization in parallel blocks.
@@ -1235,6 +1238,23 @@ def predict_lightfm(CSRMatrix item_features,
 
         free(user_repr)
         free(it_repr)
+
+
+cpdef batch_predict_lightfm(np.ndarray[CYTHON_DTYPE_t, ndim=1] item_repr,
+                          np.ndarray[CYTHON_DTYPE_t, ndim=1] user_repr,
+                          double[::1] predictions):
+    """
+    """
+
+    cdef int i, no_examples
+
+    no_examples = predictions.shape[0]
+
+    for i in range(no_examples):
+        # mb optimize here?
+        # predictions[i] = compute_prediction_from_repr(user_repr, item_repr, lightfm.no_components)
+        # TODO: check thi plz
+        predictions[i] = np.sum(user_repr * item_repr)
 
 
 def predict_ranks(CSRMatrix item_features,
