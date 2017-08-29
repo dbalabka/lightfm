@@ -7,6 +7,7 @@ import scipy.sparse as sp
 
 from lightfm import LightFM
 import lightfm
+import lightfm.lightfm
 
 mattypes = sp.coo_matrix, sp.lil_matrix, sp.csr_matrix, sp.csc_matrix
 dtypes = np.int32, np.int64, np.float32, np.float64
@@ -307,39 +308,36 @@ def test_precompute_representation():
 
 
 def test_batch_predict():
-    no_users, no_items = 5, 100
-    no_features = 3
     no_components = 2
-    user_features = sp.random(no_users, no_features, density=.5, dtype=lightfm.CYTHON_DTYPE)
-    item_features = sp.random(no_items, no_features, density=.2, dtype=lightfm.CYTHON_DTYPE)
-
-    train = sp.coo_matrix((no_users, no_items), dtype=np.int32)
+    ds = RandomDataset()
 
     model = LightFM(no_components=no_components)
-    model.fit_partial(train, user_features=user_features, item_features=item_features)
+    model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
 
     model.batch_setup(
-        item_ids=np.arange(no_items),
-        user_features=user_features,
-        item_features=item_features,
+        item_ids=np.arange(ds.no_items),
+        user_features=ds.user_features,
+        item_features=ds.item_features,
     )
-    assert np.sum(model._user_repr)
-    assert model._user_repr.shape == (no_users, no_components + 1)
-    assert np.sum(model._item_repr)
-    assert model._item_repr.shape == (no_items, no_components + 1)
+    user_repr = lightfm.lightfm._user_repr
+    item_repr = lightfm.lightfm._item_repr
+    assert np.sum(user_repr)
+    assert user_repr.shape == (ds.no_users, no_components + 1)
+    assert np.sum(item_repr)
+    assert item_repr.shape == (ds.no_items, no_components + 1)
 
     # TODO: check no setup
     # TODO: different feature dimensions
     # TODO: now working only with features
     zeros = 0
 
-    for uid in range(no_users):
+    for uid in range(ds.no_users):
 
         original_predict_scores = model.predict(
-            np.repeat(uid, no_items),
-            np.arange(no_items),
-            user_features=user_features,
-            item_features=item_features,
+            np.repeat(uid, ds.no_items),
+            np.arange(ds.no_items),
+            user_features=ds.user_features,
+            item_features=ds.item_features,
         )
 
         _, batch_predicted_scores = model._batch_predict_for_user(user_id=uid, top_k=0)
@@ -350,26 +348,22 @@ def test_batch_predict():
 
         if np.sum(batch_predicted_scores) == 0:
             zeros += 1
-    assert zeros < no_users, 'predictions seems to be all zeros'
+    assert zeros < ds.no_users, 'predictions seems to be all zeros'
 
 
 def test_batch_predict_user_recs_per_user():
-    no_users, no_items = 5, 100
-    no_features = 3
     no_components = 2
-    user_features = sp.random(no_users, no_features, density=.5, dtype=lightfm.CYTHON_DTYPE)
-    item_features = sp.random(no_items, no_features, density=.2, dtype=lightfm.CYTHON_DTYPE)
-    train = sp.coo_matrix((no_users, no_items), dtype=np.int32)
+    ds = RandomDataset()
 
     model = LightFM(no_components=no_components)
-    model.fit_partial(train, user_features=user_features, item_features=item_features)
+    model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
     model.batch_setup(
-        item_ids=np.arange(no_items),
-        user_features=user_features,
-        item_features=item_features,
+        item_ids=np.arange(ds.no_items),
+        user_features=ds.user_features,
+        item_features=ds.item_features,
     )
 
-    for uid in range(no_users):
+    for uid in range(ds.no_users):
         rec_item_ids, rec_scores = model._batch_predict_for_user(
             user_id=uid,
             top_k=5,
