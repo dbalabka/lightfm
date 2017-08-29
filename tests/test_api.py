@@ -1,5 +1,5 @@
 import numpy as np
-from numpy.testing import assert_array_almost_equal
+from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 import pytest
 
@@ -318,9 +318,6 @@ def test_batch_predict():
     model = LightFM(no_components=no_components)
     model.fit_partial(train, user_features=user_features, item_features=item_features)
 
-    l_user_features = user_features.copy()
-    l_item_features = item_features.copy()
-
     model.batch_setup(
         item_ids=np.arange(no_items),
         user_features=user_features,
@@ -341,11 +338,11 @@ def test_batch_predict():
         original_predict_scores = model.predict(
             np.repeat(uid, no_items),
             np.arange(no_items),
-            user_features=l_user_features,
-            item_features=l_item_features,
+            user_features=user_features,
+            item_features=item_features,
         )
 
-        batch_predicted_scores = model._batch_predict_for_user(user_id=uid)
+        _, batch_predicted_scores = model._batch_predict_for_user(user_id=uid, top_k=0)
 
         assert_array_almost_equal(original_predict_scores, batch_predicted_scores)
         # Regression test
@@ -356,24 +353,97 @@ def test_batch_predict():
     assert zeros < no_users, 'predictions seems to be all zeros'
 
 
-def test_full_batch_predict():
-    # TODO: not finished
+def test_batch_predict_user_recs_per_user():
     no_users, no_items = 5, 100
     no_features = 3
     no_components = 2
-    item_ids = np.arange(no_items)
     user_features = sp.random(no_users, no_features, density=.5, dtype=lightfm.CYTHON_DTYPE)
     item_features = sp.random(no_items, no_features, density=.2, dtype=lightfm.CYTHON_DTYPE)
     train = sp.coo_matrix((no_users, no_items), dtype=np.int32)
 
     model = LightFM(no_components=no_components)
     model.fit_partial(train, user_features=user_features, item_features=item_features)
-
-    recoms = model.batch_predict(
-        user_ids=[0, 1, 2],
-        item_ids=item_ids,
+    model.batch_setup(
+        item_ids=np.arange(no_items),
         user_features=user_features,
         item_features=item_features,
-        n_process=2,
     )
-    assert recoms == {}
+
+    for uid in range(no_users):
+        rec_item_ids, rec_scores = model._batch_predict_for_user(
+            user_id=uid,
+            top_k=5,
+        )
+        assert len(rec_scores) == 5
+        assert_array_almost_equal(rec_scores, -1 * np.sort(-1 * rec_scores))
+
+
+class RandomDataset:
+
+    def __init__(self,
+                 no_users: int=5,
+                 no_items: int=100,
+                 no_features: int=3,
+                 density=.3,
+                 ):
+        self.no_users = no_users
+        self.no_items = no_items
+        self.no_features = no_features
+        self.density = density
+        self.item_ids = np.arange(self.no_items)
+        self.user_features = sp.random(no_users, no_features, density=self.density, dtype=lightfm.CYTHON_DTYPE)
+        self.item_features = sp.random(no_items, no_features, density=self.density, dtype=lightfm.CYTHON_DTYPE)
+        self.train = sp.coo_matrix((no_users, no_items), dtype=np.int32)
+
+
+def test_full_batch_predict():
+    # TODO: not finished
+    no_components = 2
+    top_k = 5
+    ds = RandomDataset()
+
+    model = LightFM(no_components=no_components)
+    model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
+    user_ids = [0, 1, 2]
+
+    # Single process
+    recoms = model.batch_predict(
+        user_ids=user_ids,
+        item_ids=ds.item_ids,
+        user_features=ds.user_features,
+        item_features=ds.item_features,
+        n_process=1,
+        top_k=top_k,
+    )
+    for user_id in user_ids:
+        assert user_id in recoms
+        assert len(recoms[user_id][0]) == top_k
+    initial_recoms = recoms
+
+    # Multiple processes
+    recoms = model.batch_predict(
+        user_ids=user_ids,
+        item_ids=ds.item_ids,
+        user_features=ds.user_features,
+        item_features=ds.item_features,
+        n_process=2,
+        top_k=top_k,
+    )
+    for user_id in user_ids:
+        assert user_id in recoms
+        assert_array_almost_equal(recoms[user_id], initial_recoms[user_id])
+
+
+
+def test_get_top_k_scores():
+    scores = np.array([.2, .1, .05, .9])
+
+    # Without trimming to top k
+    item_ids, new_scores = LightFM._get_top_k_scores(scores=scores, k=0)
+    assert_array_almost_equal(new_scores, scores)
+    assert_array_equal(item_ids, np.arange(4))
+
+    # With trimming to top k
+    item_ids, new_scores = LightFM._get_top_k_scores(scores=scores, k=2)
+    assert_array_almost_equal(new_scores, np.array([.9, .2]))
+    assert_array_equal(item_ids, np.array([3, 0]))
