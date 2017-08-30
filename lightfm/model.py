@@ -1,18 +1,15 @@
-from typing import Union, Tuple, Dict
-import multiprocessing as mp
 import itertools
+import multiprocessing as mp
+from typing import Union, Tuple, Dict
 
 import numpy as np
 import scipy.sparse as sp
 
-
+from lightfm import CYTHON_DTYPE, ID_DTYPE
 from ._lightfm_fast import CSRMatrix, FastLightFM, fit_bpr, fit_logistic
-from ._lightfm_fast import fit_warp, fit_warp_kos, predict_lightfm, predict_ranks, batch_predict_lightfm
+from ._lightfm_fast import fit_warp, fit_warp_kos, predict_lightfm, predict_ranks
 
 __all__ = ['LightFM']
-
-CYTHON_DTYPE = np.float32
-ID_DTYPE = np.int32
 
 
 class LightFM:
@@ -748,54 +745,19 @@ class LightFM:
 
         return predictions
 
-    @staticmethod
-    def precompute_representation(
-            features: sp.csr_matrix,
-            feature_embeddings: np.ndarray,
-            feature_biases: np.ndarray,
-            scale: float) -> np.ndarray:
-        """
-        :param: features           csr_matrix         [n_objects, n_features]
-        :param: feature_embeddings np.ndarray(float)  [n_features, no_component]
-        :param: feature_biases     np.ndarray(float)  [n_features]
-        :param: scale (learnt from factorization)
-
-        :return: representation    np.ndarray(float)  [n_objects, no_component+1]
-        """
-
-        feature_embeddings = feature_embeddings * scale
-        representation = features.dot(feature_embeddings)
-        representation = np.hstack([representation, features.dot(feature_biases).reshape(-1, 1)])
-
-        return representation
-
     def batch_setup(self,
                     item_ids: np.ndarray,
                     item_features: Union[None, sp.csr_matrix]=None,
                     user_features: Union[None, sp.csr_matrix]=None):
+        from lightfm.inference import _batch_predict_for_user, _batch_setup, _batch_cleanup
         _batch_setup(model=self, item_ids=item_ids, item_features=item_features, user_features=user_features)
 
-    @staticmethod
-    def _get_top_k_scores(scores: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        :return: indices of items, top_k scores. All in score decreasing order.
-        """
-
-        if k:
-            top_indices = np.argpartition(scores, -k)[-k:]
-            scores = scores[top_indices]
-            sorted_top_indices = np.argsort(scores)[::-1]
-            scores = scores[sorted_top_indices]
-            top_indices = top_indices[sorted_top_indices]
-        else:
-            top_indices = np.arange(len(scores))
-
-        return top_indices, scores
 
     def _batch_predict_for_user(self, user_id: int, top_k: int=50) -> Tuple[np.ndarray, np.ndarray]:
         """
         :return: indices of items, top_k scores. All in score decreasing order.
         """
+        from lightfm.inference import _batch_predict_for_user, _batch_setup, _batch_cleanup
         return _batch_predict_for_user(user_id=user_id, top_k=top_k)
 
     def batch_predict(
@@ -815,6 +777,8 @@ class LightFM:
         # TODO: not finished
         if not isinstance(user_ids, np.ndarray):
             user_ids = np.array(user_ids, dtype=ID_DTYPE)
+
+        from lightfm.inference import _batch_predict_for_user, _batch_setup, _batch_cleanup
 
         try:
             _batch_setup(model=self, item_ids=item_ids, item_features=item_features, user_features=user_features)
@@ -942,6 +906,7 @@ class LightFM:
                  np.float32 array of shape [n_items, num_components]
             Biases and latent representations for items.
         """
+        # TODO: Not used anymore
 
         self._check_initialized()
 
@@ -971,6 +936,7 @@ class LightFM:
                  np.float32 array of shape [n_users, num_components]
             Biases and latent representations for users.
         """
+        # TODO: Not used anymore
 
         self._check_initialized()
 
@@ -1038,64 +1004,3 @@ class LightFM:
             setattr(self, key, value)
 
         return self
-
-
-# Set of global variables for multiprocessing
-_item_ids = np.array([])
-_user_repr = np.array([])
-_item_repr = np.ndarray([])
-
-
-def _batch_predict_for_user(user_id: int, top_k: int=50) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    :return: indices of items, top_k scores. All in score decreasing order.
-    """
-    scores = np.zeros(len(_item_ids), dtype=CYTHON_DTYPE)
-
-    batch_predict_lightfm(
-        user_repr=_user_repr[user_id, :],
-        item_repr=_item_repr,
-        predictions=scores,
-    )
-    return LightFM._get_top_k_scores(scores, k=top_k)
-
-
-def _batch_setup(model: LightFM,
-                 item_ids: np.ndarray,
-                 item_features: Union[None, sp.csr_matrix]=None,
-                 user_features: Union[None, sp.csr_matrix]=None):
-
-    global _item_ids, _item_repr, _user_repr
-
-    if item_ids.dtype != np.int32:
-        item_ids = item_ids.astype(np.int32)
-
-    n_users = user_features.shape[0]
-    user_features = model._construct_user_features(n_users, user_features)
-    global _user_repr
-    _user_repr = model.precompute_representation(
-        features=user_features,
-        feature_embeddings=model.user_embeddings,
-        feature_biases=model.user_biases,
-        scale=1.0,
-        # TODO: why scale always 1.0 at the beginning?
-    )
-
-    n_items = item_features.shape[0]
-    item_features = model._construct_item_features(n_items, item_features)
-    _item_repr = model.precompute_representation(
-        item_features,
-        model.item_embeddings,
-        model.item_biases,
-        1.0,
-        # TODO: why scale always 1.0 at the beginning?
-    )
-
-    _item_ids = item_ids
-
-
-def _batch_cleanup():
-    global _item_ids, _item_repr, _user_repr
-    _item_ids = np.array([])
-    _user_repr = np.array([])
-    _item_repr = np.ndarray([])

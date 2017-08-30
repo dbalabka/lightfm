@@ -7,7 +7,8 @@ import scipy.sparse as sp
 
 from lightfm import LightFM
 import lightfm
-import lightfm.lightfm
+import lightfm.model
+import lightfm.inference as inference
 
 mattypes = sp.coo_matrix, sp.lil_matrix, sp.csr_matrix, sp.csc_matrix
 dtypes = np.int32, np.int64, np.float32, np.float64
@@ -303,7 +304,7 @@ def test_precompute_representation():
     scale = 1.1
     features = user_features
 
-    representation = LightFM.precompute_representation(features, feature_embeddings, feature_biases, scale)
+    representation = inference._precompute_representation(features, feature_embeddings, feature_biases, scale)
     assert representation.shape == (n_users, no_component + 1)
 
 
@@ -319,8 +320,8 @@ def test_batch_predict():
         user_features=ds.user_features,
         item_features=ds.item_features,
     )
-    user_repr = lightfm.lightfm._user_repr
-    item_repr = lightfm.lightfm._item_repr
+    user_repr = inference._user_repr
+    item_repr = inference._item_repr
     assert np.sum(user_repr)
     assert user_repr.shape == (ds.no_users, no_components + 1)
     assert np.sum(item_repr)
@@ -433,11 +434,11 @@ def test_get_top_k_scores():
     scores = np.array([.2, .1, .05, .9])
 
     # Without trimming to top k
-    item_ids, new_scores = LightFM._get_top_k_scores(scores=scores, k=0)
+    item_ids, new_scores = inference._get_top_k_scores(scores=scores, k=0)
     assert_array_almost_equal(new_scores, scores)
     assert_array_equal(item_ids, np.arange(4))
 
     # With trimming to top k
-    item_ids, new_scores = LightFM._get_top_k_scores(scores=scores, k=2)
+    item_ids, new_scores = inference._get_top_k_scores(scores=scores, k=2)
     assert_array_almost_equal(new_scores, np.array([.9, .2]))
     assert_array_equal(item_ids, np.array([3, 0]))

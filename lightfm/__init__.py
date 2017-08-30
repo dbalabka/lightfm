@@ -1,8 +1,12 @@
+import numpy as np
+
+CYTHON_DTYPE = np.float32
+ID_DTYPE = np.int32
+
 try:
     __LIGHTFM_SETUP__
 except NameError:
-    from .lightfm import LightFM
-    from .lightfm import CYTHON_DTYPE, ID_DTYPE
+    from .model import LightFM
 
 __version__ = '1.13.6'
 

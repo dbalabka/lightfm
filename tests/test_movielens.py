@@ -378,8 +378,7 @@ def test_movielens_genre_accuracy():
 def test_get_representations():
 
     model = LightFM(random_state=SEED)
-    model.fit_partial(train,
-                      epochs=10)
+    model.fit_partial(train, epochs=10)
 
     num_users, num_items = train.shape
 
@@ -478,7 +477,7 @@ def test_movielens_accuracy_sample_weights():
     weights = train.copy()
     weights.data = np.ones(train.getnnz(), dtype=np.float32) * scale
 
-    for (loss, exp_score) in (('logistic', 0.74),
+    for loss, exp_score in (('logistic', 0.74),
                               ('bpr', 0.84),
                               ('warp', 0.89)):
         model = LightFM(loss=loss, random_state=SEED)
@@ -488,12 +487,7 @@ def test_movielens_accuracy_sample_weights():
                           sample_weight=weights,
                           epochs=10)
 
-        (train_precision,
-         test_precision,
-         full_train_auc,
-         full_test_auc) = _get_metrics(model,
-                                       train,
-                                       test)
+        (train_precision, test_precision, full_train_auc, full_test_auc) = _get_metrics(model, train, test)
 
         assert full_train_auc > exp_score
 
@@ -547,14 +541,16 @@ def test_user_supplied_features_accuracy():
         epochs=10,
     )
 
-    train_predictions = model.predict(train.row,
-                                      train.col,
-                                      user_features=train_user_features,
-                                      item_features=train_item_features)
-    test_predictions = model.predict(test.row,
-                                     test.col,
-                                     user_features=test_user_features,
-                                     item_features=test_item_features)
+    train_predictions = model.predict(
+        train.row,
+        train.col,
+        user_features=train_user_features,
+        item_features=train_item_features)
+    test_predictions = model.predict(
+        test.row,
+        test.col,
+        user_features=test_user_features,
+        item_features=test_item_features)
 
     assert roc_auc_score(train.data, train_predictions) > 0.84
     assert roc_auc_score(test.data, test_predictions) > 0.76
@@ -615,19 +611,19 @@ def test_movielens_excessive_regularization():
         # Should perform poorly with high regularization.
         # Check that regularization does not accumulate
         # until it reaches infinity.
-        model = LightFM(no_components=10,
-                        item_alpha=1.0,
-                        user_alpha=1.0,
-                        loss=loss,
-                        random_state=SEED)
-        model.fit_partial(train,
-                          epochs=10,
-                          num_threads=4)
+        model = LightFM(
+            no_components=10,
+            item_alpha=1.0,
+            user_alpha=1.0,
+            loss=loss,
+            random_state=SEED)
+        model.fit_partial(
+            train,
+            epochs=10,
+            num_threads=4)
 
-        train_predictions = model.predict(train.row,
-                                          train.col)
-        test_predictions = model.predict(test.row,
-                                         test.col)
+        train_predictions = model.predict(train.row, train.col)
+        test_predictions = model.predict(test.row, test.col)
 
         assert roc_auc_score(train.data, train_predictions) < 0.65
         assert roc_auc_score(test.data, test_predictions) < 0.65
