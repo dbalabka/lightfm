@@ -478,8 +478,8 @@ def test_movielens_accuracy_sample_weights():
     weights.data = np.ones(train.getnnz(), dtype=np.float32) * scale
 
     for loss, exp_score in (('logistic', 0.74),
-                              ('bpr', 0.84),
-                              ('warp', 0.89)):
+                            ('bpr', 0.84),
+                            ('warp', 0.89)):
         model = LightFM(loss=loss, random_state=SEED)
         model.learning_rate * 1.0 / scale
 

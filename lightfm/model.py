@@ -740,7 +740,6 @@ class LightFM:
         from lightfm.inference import _batch_setup
         _batch_setup(model=self, item_ids=item_ids, item_features=item_features, user_features=user_features)
 
-
     def _batch_predict_for_user(self, user_id: int, top_k: int=50) -> Tuple[np.ndarray, np.ndarray]:
         """
         :return: indices of items, top_k scores. All in score decreasing order.
@@ -766,7 +765,6 @@ class LightFM:
         recommendations = {}
         if not isinstance(user_ids, np.ndarray):
             user_ids = np.array(user_ids, dtype=ID_DTYPE)
-
 
         try:
             _batch_setup(model=self, item_ids=item_ids, item_features=item_features, user_features=user_features)
@@ -987,10 +985,8 @@ class LightFM:
 
         for key, value in params.items():
             if key not in valid_params:
-                msg = (
-                    f'Invalid parameter {key} for estimator {self.__class__}. ' 
-                    'Check the list of available parameters with `estimator.get_params().keys()`.'
-                )
+                msg = (f'Invalid parameter {key} for estimator {self.__class__}. '
+                       'Check the list of available parameters with `estimator.get_params().keys()`.')
                 self.error(msg)
                 raise ValueError(msg)
 

@@ -1,6 +1,9 @@
 # LightFM
 
-![LightFM logo](lightfm.png)
+## This fork intends to
+- implement efficient production ready inference
+- convenient production ready dataset preparation
+- enable full python3 support, leaving python2 behind
 
 | Build status | |
 |---|---|

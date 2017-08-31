@@ -4,19 +4,15 @@ import requests
 
 
 def get_data_dir():
-
-    return os.path.join(os.path.expanduser('~'),
-                        'lightfm_data')
+    return os.path.join(os.path.expanduser('~'), 'lightfm_data')
 
 
 def create_data_dir(path):
-
     if not os.path.isdir(path):
         os.makedirs(path)
 
 
 def download(url, dest_path):
-
     req = requests.get(url, stream=True)
     req.raise_for_status()
 

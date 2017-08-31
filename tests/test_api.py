@@ -429,7 +429,6 @@ def test_full_batch_predict():
         assert_array_almost_equal(recoms[user_id], initial_recoms[user_id])
 
 
-
 def test_get_top_k_scores():
     scores = np.array([.2, .1, .05, .9])
 

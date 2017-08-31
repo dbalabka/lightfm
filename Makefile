@@ -57,3 +57,7 @@ compile:
 
 bump:
 	@bumpversion --tag patch
+
+coverage:
+	@coverage run --source lightfm -m py.test
+	@coverage report
