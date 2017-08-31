@@ -44,7 +44,7 @@ clean-test:
 
 test: compile
 	- pip install -e .;
-	py.test -v tests
+	py.test -v -m 'not long' tests
 
 check: pep8
 

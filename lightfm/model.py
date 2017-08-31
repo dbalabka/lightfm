@@ -1,13 +1,15 @@
+import logging
 import itertools
 import multiprocessing as mp
+from copy import copy
 from typing import Union, Tuple, Dict
 
 import numpy as np
 import scipy.sparse as sp
 
 from lightfm import CYTHON_DTYPE, ID_DTYPE
-from ._lightfm_fast import CSRMatrix, FastLightFM, fit_bpr, fit_logistic
-from ._lightfm_fast import fit_warp, fit_warp_kos, predict_lightfm, predict_ranks
+from lightfm._lightfm_fast import CSRMatrix, FastLightFM, fit_bpr, fit_logistic
+from lightfm._lightfm_fast import fit_warp, fit_warp_kos, predict_lightfm, predict_ranks
 
 __all__ = ['LightFM']
 
@@ -169,7 +171,8 @@ class LightFM:
                  item_alpha=0.0,
                  user_alpha=0.0,
                  max_sampled=10,
-                 random_state=None):
+                 random_state=None,
+                 logger: Union[None, logging.Logger]=None):
 
         assert item_alpha >= 0.0
         assert user_alpha >= 0.0
@@ -180,6 +183,7 @@ class LightFM:
         assert epsilon >= 0
         assert learning_schedule in ('adagrad', 'adadelta')
         assert loss in ('logistic', 'warp', 'bpr', 'warp-kos')
+        self.logger = logger or logging.getLogger('lightfm')
 
         if max_sampled < 1:
             raise ValueError('max_sampled must be a positive integer')
@@ -210,7 +214,6 @@ class LightFM:
         self._reset_state()
 
     def _reset_state(self):
-
         self.item_embeddings = None
         self.item_embedding_gradients = None
         self.item_embedding_momentum = None
@@ -226,7 +229,6 @@ class LightFM:
         self.user_bias_momentum = None
 
     def _check_initialized(self):
-
         for var in (self.item_embeddings,
                     self.item_embedding_gradients,
                     self.item_embedding_momentum,
@@ -276,12 +278,11 @@ class LightFM:
             self.user_bias_gradients += 1
 
     def _construct_feature_matrices(self, n_users, n_items, user_features, item_features):
-
         user_features = self._construct_user_features(n_users, user_features)
         item_features = self._construct_item_features(n_items, item_features)
         return user_features, item_features
 
-    def _construct_item_features(self, n_items, item_features):
+    def _construct_item_features(self, n_items: int, item_features: Union[sp.csr_matrix, None]) -> sp.csr_matrix:
         # TODO: mb. merge with user features
         if item_features is None:
             item_features = sp.identity(n_items, dtype=CYTHON_DTYPE, format='csr')
@@ -293,12 +294,10 @@ class LightFM:
 
         if self.item_embeddings is not None:
             if not self.item_embeddings.shape[0] >= item_features.shape[1]:
-                raise ValueError('The item feature matrix specifies more '
-                                 'features than there are estimated '
-                                 'feature embeddings: {} vs {}.'.format(
-                    self.item_embeddings.shape[0],
-                    item_features.shape[1]
-                ))
+                raise ValueError(
+                    'The item feature matrix specifies more features than there are estimated '
+                    'feature embeddings: {} vs {}.'.format(self.item_embeddings.shape[0], item_features.shape[1])
+                )
 
         item_features = self._to_cython_dtype(item_features)
         return item_features
@@ -316,19 +315,16 @@ class LightFM:
         # we have them for all the supplied features
         if self.user_embeddings is not None:
             if not self.user_embeddings.shape[0] >= user_features.shape[1]:
-                raise ValueError('The user feature matrix specifies more '
-                                 'features than there are estimated '
-                                 'feature embeddings: {} vs {}.'.format(
-                    self.user_embeddings.shape[0],
-                    user_features.shape[1]
-                ))
+                raise ValueError(
+                    'The user feature matrix specifies more features than there are estimated '
+                    'feature embeddings: {} vs {}.'.format(self.user_embeddings.shape[0], user_features.shape[1])
+                )
 
         user_features = self._to_cython_dtype(user_features)
         return user_features
 
-
-    def _get_positives_lookup_matrix(self, interactions):
-
+    @staticmethod
+    def _get_positives_lookup_matrix(interactions):
         mat = interactions.tocsr()
 
         if not mat.has_sorted_indices:
@@ -336,34 +332,28 @@ class LightFM:
         else:
             return mat
 
-    def _to_cython_dtype(self, mat):
-
+    @staticmethod
+    def _to_cython_dtype(mat):
         if mat.dtype != CYTHON_DTYPE:
             return mat.astype(CYTHON_DTYPE)
         else:
             return mat
 
     def _process_sample_weight(self, interactions, sample_weight):
-
         if sample_weight is not None:
 
             if self.loss == 'warp-kos':
-                raise NotImplementedError('k-OS loss with sample weights '
-                                          'not implemented.')
+                raise NotImplementedError('k-OS loss with sample weights not implemented.')
 
             if not isinstance(sample_weight, sp.coo_matrix):
                 raise ValueError('Sample_weight must be a COO matrix.')
 
             if sample_weight.shape != interactions.shape:
-                raise ValueError('Sample weight and interactions '
-                                 'matrices must be the same shape')
+                raise ValueError('Sample weight and interactions matrices must be the same shape')
 
-            if not (np.array_equal(interactions.row,
-                                   sample_weight.row) and
-                    np.array_equal(interactions.col,
-                                   sample_weight.col)):
-                raise ValueError('Sample weight and interaction matrix '
-                                 'entries must be in the same order')
+            if not (np.array_equal(interactions.row, sample_weight.row) and
+                    np.array_equal(interactions.col, sample_weight.col)):
+                raise ValueError('Sample weight and interaction matrix entries must be in the same order')
 
             if sample_weight.data.dtype != CYTHON_DTYPE:
                 sample_weight_data = sample_weight.data.astype(CYTHON_DTYPE)
@@ -376,13 +366,11 @@ class LightFM:
                 sample_weight_data = interactions.data
             else:
                 # Otherwise allocate a new array of ones
-                sample_weight_data = np.ones_like(interactions.data,
-                                                  dtype=CYTHON_DTYPE)
+                sample_weight_data = np.ones_like(interactions.data, dtype=CYTHON_DTYPE)
 
         return sample_weight_data
 
     def _get_lightfm_data(self):
-
         lightfm_data = FastLightFM(
             self.item_embeddings,
             self.item_embedding_gradients,
@@ -407,25 +395,23 @@ class LightFM:
         return lightfm_data
 
     def _check_finite(self):
-
-        for parameter in (self.item_embeddings,
-                          self.item_biases,
-                          self.user_embeddings,
-                          self.user_biases):
+        for parameter in (self.item_embeddings, self.item_biases, self.user_embeddings, self.user_biases):
             # A sum of an array that contains non-finite values
             # will also be non-finite, and we avoid creating a
             # large boolean temporary.
+            msg = (
+                'Not all estimated parameters are finite, your model may have diverged. Try decreasing'
+                ' the learning rate or normalising feature values and sample weights'
+            )
             if not np.isfinite(np.sum(parameter)):
-                raise ValueError("Not all estimated parameters are finite,"
-                                 " your model may have diverged. Try decreasing"
-                                 " the learning rate or normalising feature values"
-                                 " and sample weights")
+                self.error(msg)
+                raise ValueError(msg)
 
     def _check_input_finite(self, data):
-
+        msg = 'Not all input values are finite. Check the input for NaNs and infinite values.'
         if not np.isfinite(np.sum(data)):
-            raise ValueError('Not all input values are finite. '
-                             'Check the input for NaNs and infinite values.')
+            self.error(msg)
+            raise ValueError(msg)
 
     def fit(self, interactions,
             user_features=None, item_features=None,
@@ -472,7 +458,6 @@ class LightFM:
             the fitted model
 
         """
-
         # Discard old results, if any
         self._reset_state()
 
@@ -486,15 +471,14 @@ class LightFM:
             verbose=verbose,
         )
 
-    def fit_partial(
-            self,
-            interactions,
-            user_features=None,
-            item_features=None,
-            sample_weight=None,
-            epochs=1,
-            num_threads=1,
-            verbose=False):
+    def fit_partial(self,
+                    interactions,
+                    user_features=None,
+                    item_features=None,
+                    sample_weight=None,
+                    epochs=1,
+                    num_threads=1,
+                    verbose=False):
         """
         Fit the model.
 
@@ -542,18 +526,14 @@ class LightFM:
         # We need this in the COO format.
         # If that's already true, this is a no-op.
         interactions = interactions.tocoo()
-
         if interactions.dtype != CYTHON_DTYPE:
             interactions.data = interactions.data.astype(CYTHON_DTYPE)
 
         sample_weight_data = self._process_sample_weight(interactions, sample_weight)
 
         n_users, n_items = interactions.shape
-        (user_features, item_features) = self._construct_feature_matrices(
-            n_users,
-            n_items,
-            user_features,
-            item_features)
+        user_features, item_features = self._construct_feature_matrices(n_users, n_items,
+                                                                        user_features, item_features)
 
         sample_weight = (self._to_cython_dtype(sample_weight)
                          if sample_weight is not None else
@@ -576,26 +556,32 @@ class LightFM:
             raise ValueError('Incorrect number of features in user_features')
 
         for epoch in range(epochs):
-
             if verbose:
-                print('Epoch %s' % epoch)
-
+                self.logger.info(f'Epoch {epoch}')
             self._run_epoch(item_features, user_features, interactions, sample_weight_data, num_threads, self.loss)
-
             self._check_finite()
 
         return self
 
-    def _run_epoch(self, item_features, user_features, interactions,
-                   sample_weight, num_threads, loss):
+    def debug(self, *args, **kwargs):
+        self.logger.debug(*args, **kwargs)
+
+    def info(self, *args, **kwargs):
+        self.logger.info(*args, **kwargs)
+
+    def error(self, *args, **kwargs):
+        self.logger.error(*args, **kwargs)
+
+    # noinspection PyUnboundLocalVariable
+    def _run_epoch(self, item_features, user_features, interactions, sample_weight, num_threads, loss):
         """
         Run an individual epoch.
         """
-
         if loss in ('warp', 'bpr', 'warp-kos'):
             # The CSR conversion needs to happen before shuffle indices are created.
             # Calling .tocsr may result in a change in the data arrays of the COO matrix,
             positives_lookup = CSRMatrix(self._get_positives_lookup_matrix(interactions))
+            self.debug('positives lookup')
 
         # Create shuffle indexes.
         shuffle_indices = np.arange(len(interactions.data), dtype=np.int32)
@@ -620,6 +606,7 @@ class LightFM:
                 self.user_alpha,
                 num_threads,
                 self.random_state)
+        # identical
         elif loss == 'bpr':
             fit_bpr(
                 CSRMatrix(item_features),
@@ -636,6 +623,7 @@ class LightFM:
                 self.user_alpha,
                 num_threads,
                 self.random_state)
+        # non identical
         elif loss == 'warp-kos':
             fit_warp_kos(
                 CSRMatrix(item_features),
@@ -673,8 +661,7 @@ class LightFM:
                 user_features: Union[None, sp.csr_matrix]=None,
                 num_threads: int=1,
                 do_reconstruct_item_features=True,
-                do_reconstruct_user_features=True,
-                ) -> np.ndarray:
+                do_reconstruct_user_features=True) -> np.ndarray:
         """
         Compute the recommendation score for user-item pairs.
 
@@ -707,6 +694,7 @@ class LightFM:
         """
 
         self._check_initialized()
+        self.info('Predicting ...')
 
         if not isinstance(user_ids, np.ndarray):
             user_ids = np.repeat(np.int32(user_ids), len(item_ids))
@@ -749,7 +737,7 @@ class LightFM:
                     item_ids: np.ndarray,
                     item_features: Union[None, sp.csr_matrix]=None,
                     user_features: Union[None, sp.csr_matrix]=None):
-        from lightfm.inference import _batch_predict_for_user, _batch_setup, _batch_cleanup
+        from lightfm.inference import _batch_setup
         _batch_setup(model=self, item_ids=item_ids, item_features=item_features, user_features=user_features)
 
 
@@ -757,36 +745,38 @@ class LightFM:
         """
         :return: indices of items, top_k scores. All in score decreasing order.
         """
-        from lightfm.inference import _batch_predict_for_user, _batch_setup, _batch_cleanup
+        from lightfm.inference import _batch_predict_for_user
         return _batch_predict_for_user(user_id=user_id, top_k=top_k)
 
-    def batch_predict(
-            self,
-            user_ids: Union[np.ndarray, list],
-            item_ids: np.ndarray,
-            user_features: Union[sp.csr_matrix, None],
-            item_features: Union[sp.csr_matrix, None],
-            n_process: int=1,
-            top_k: int=50) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
+    def batch_predict(self,
+                      user_ids: Union[np.ndarray, list],
+                      item_ids: np.ndarray,
+                      user_features: Union[sp.csr_matrix, None],
+                      item_features: Union[sp.csr_matrix, None],
+                      n_process: int=1,
+                      top_k: int=50) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
         """
         :return: dict by user id: item_indices, scores sorted by score
         """
+        from lightfm.inference import _batch_predict_for_user, _batch_setup, _batch_cleanup
+
         self._check_initialized()
+        self.info(f'Batch predict: user_ids: {len(user_ids):,}, item_ids: {len(item_ids):,}')
 
         recommendations = {}
-        # TODO: not finished
         if not isinstance(user_ids, np.ndarray):
             user_ids = np.array(user_ids, dtype=ID_DTYPE)
 
-        from lightfm.inference import _batch_predict_for_user, _batch_setup, _batch_cleanup
 
         try:
             _batch_setup(model=self, item_ids=item_ids, item_features=item_features, user_features=user_features)
             if n_process == 1:
+                self.debug('Single process')
                 for user_id in user_ids:
                     rec_ids, scores = _batch_predict_for_user(user_id=user_id, top_k=top_k)
                     recommendations[user_id] = rec_ids, scores
             else:
+                self.debug('Pool of processes')
                 with mp.Pool(processes=n_process) as pool:
                     recs_list = pool.starmap(
                         _batch_predict_for_user,
@@ -796,6 +786,8 @@ class LightFM:
                 pool.terminate()
         finally:
             _batch_cleanup()
+        self.info('Recs done')
+
         return recommendations
 
     def predict_rank(self, test_interactions, train_interactions=None,
@@ -874,7 +866,6 @@ class LightFM:
         )
 
         lightfm_data = self._get_lightfm_data()
-
         predict_ranks(
             CSRMatrix(item_features),
             CSRMatrix(user_features),
@@ -996,11 +987,22 @@ class LightFM:
 
         for key, value in params.items():
             if key not in valid_params:
-                raise ValueError('Invalid parameter %s for estimator %s. '
-                                 'Check the list of available parameters '
-                                 'with `estimator.get_params().keys()`.' %
-                                 (key, self.__class__.__name__))
+                msg = (
+                    f'Invalid parameter {key} for estimator {self.__class__}. ' 
+                    'Check the list of available parameters with `estimator.get_params().keys()`.'
+                )
+                self.error(msg)
+                raise ValueError(msg)
 
             setattr(self, key, value)
 
         return self
+
+    def __getstate__(self):
+        obj = copy(self.__dict__)
+        obj['logger'] = None
+        return obj
+
+    def __setstate__(self, state):
+        state['logger'] = logging.getLogger('lightfm')
+        self.__dict__ = state
