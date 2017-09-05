@@ -739,12 +739,12 @@ class LightFM:
         from lightfm.inference import _batch_setup
         _batch_setup(model=self, item_ids=item_ids, item_features=item_features, user_features=user_features)
 
-    def _batch_predict_for_user(self, user_id: int, top_k: int=50) -> Tuple[np.ndarray, np.ndarray]:
+    def predict_for_user(self, user_id: int, top_k: int=50, item_ids=None) -> Tuple[np.ndarray, np.ndarray]:
         """
         :return: indices of items, top_k scores. All in score decreasing order.
         """
         from lightfm.inference import _batch_predict_for_user
-        return _batch_predict_for_user(user_id=user_id, top_k=top_k)
+        return _batch_predict_for_user(user_id=user_id, top_k=top_k, item_ids=item_ids)
 
     def batch_predict(self,
                       user_ids: Union[np.ndarray, list],

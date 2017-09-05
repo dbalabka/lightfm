@@ -345,7 +345,7 @@ def test_batch_predict():
             item_features=ds.item_features,
         )
 
-        _, batch_predicted_scores = model._batch_predict_for_user(user_id=uid, top_k=0)
+        _, batch_predicted_scores = model.predict_for_user(user_id=uid, top_k=0)
 
         assert_array_almost_equal(original_predict_scores, batch_predicted_scores)
         # Regression test
@@ -354,6 +354,27 @@ def test_batch_predict():
         if np.sum(batch_predicted_scores) == 0:
             zeros += 1
     assert zeros < ds.no_users, 'predictions seems to be all zeros'
+
+
+def test_predict_for_user_with_items():
+    no_components = 2
+    ds = RandomDataset(no_items=5, no_users=2, density=1.)
+    model = LightFM(no_components=no_components)
+    model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
+
+    model.batch_setup(
+        item_ids=np.arange(ds.no_items),
+        user_features=ds.user_features,
+        item_features=ds.item_features,
+    )
+
+    for user_id in range(ds.no_users):
+        scores = model.predict_for_user(
+            user_id=user_id,
+            top_k=2,
+            item_ids=np.arange(2),
+        )
+        assert len(scores) == 2
 
 
 def test_batch_predict_user_recs_per_user():
@@ -369,7 +390,7 @@ def test_batch_predict_user_recs_per_user():
     )
 
     for uid in range(ds.no_users):
-        rec_item_ids, rec_scores = model._batch_predict_for_user(
+        rec_item_ids, rec_scores = model.predict_for_user(
             user_id=uid,
             top_k=5,
         )

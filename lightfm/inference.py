@@ -82,16 +82,23 @@ def _get_top_k_scores(scores: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarra
     return top_indices, scores
 
 
-def _batch_predict_for_user(user_id: int, top_k: int=50) -> Tuple[np.ndarray, np.ndarray]:
+def _batch_predict_for_user(user_id: int, top_k: int=50, item_ids=None) -> Tuple[np.ndarray, np.ndarray]:
     """
     :return: indices of items, top_k scores. All in score decreasing order.
     """
     # exclude biases from repr (last column of user_repr and last row of transposed item repr)
     user_repr = _user_repr[user_id, :]
 
-    scores = user_repr.dot(_item_repr)
+    if item_ids is None:
+        item_repr = _item_repr
+        item_repr_biases = _item_repr_biases
+    else:
+        item_repr = _item_repr[:, item_ids]
+        item_repr_biases = _item_repr_biases[item_ids]
+
+    scores = user_repr.dot(item_repr)
     scores += _user_repr_biases[user_id]
-    scores += _item_repr_biases
+    scores += item_repr_biases
     return _get_top_k_scores(scores, k=top_k)
 
 
