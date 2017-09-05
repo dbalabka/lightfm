@@ -557,7 +557,7 @@ class LightFM:
 
         for epoch in range(epochs):
             if verbose:
-                self.logger.info(f'Epoch {epoch}')
+                self.logger.info('Epoch {}'.format(epoch))
             self._run_epoch(item_features, user_features, interactions, sample_weight_data, num_threads, self.loss)
             self._check_finite()
 
@@ -760,7 +760,7 @@ class LightFM:
         from lightfm.inference import _batch_predict_for_user, _batch_setup, _batch_cleanup
 
         self._check_initialized()
-        self.info(f'Batch predict: user_ids: {len(user_ids):,}, item_ids: {len(item_ids):,}')
+        self.info('Batch predict: user_ids: {:,}, item_ids: {:,}'.format(len(user_ids), len(item_ids)))
 
         recommendations = {}
         if not isinstance(user_ids, np.ndarray):
@@ -985,8 +985,10 @@ class LightFM:
 
         for key, value in params.items():
             if key not in valid_params:
-                msg = (f'Invalid parameter {key} for estimator {self.__class__}. '
-                       'Check the list of available parameters with `estimator.get_params().keys()`.')
+                msg = (
+                    'Invalid parameter {} for estimator {}. '
+                    'Check the list of available parameters with `estimator.get_params().keys()`.'
+                ).format(key, self.__class__)
                 self.error(msg)
                 raise ValueError(msg)
 
