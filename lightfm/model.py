@@ -581,7 +581,6 @@ class LightFM:
             # The CSR conversion needs to happen before shuffle indices are created.
             # Calling .tocsr may result in a change in the data arrays of the COO matrix,
             positives_lookup = CSRMatrix(self._get_positives_lookup_matrix(interactions))
-            self.debug('positives lookup')
 
         # Create shuffle indexes.
         shuffle_indices = np.arange(len(interactions.data), dtype=np.int32)
@@ -767,15 +766,18 @@ class LightFM:
             user_ids = np.array(user_ids, dtype=ID_DTYPE)
 
         try:
+            self.debug('Settings up ids and features...')
             _batch_setup(model=self, item_ids=item_ids, item_features=item_features, user_features=user_features)
+            self.debug('All setup!')
             if n_process == 1:
-                self.debug('Single process')
+                self.debug('Using single process')
                 for user_id in user_ids:
                     rec_ids, scores = _batch_predict_for_user(user_id=user_id, top_k=top_k)
                     recommendations[user_id] = rec_ids, scores
             else:
-                self.debug('Pool of processes')
+                self.debug('Creating pool of processes...')
                 with mp.Pool(processes=n_process) as pool:
+                    self.debug('Start recommending')
                     recs_list = pool.starmap(
                         _batch_predict_for_user,
                         zip(user_ids, itertools.repeat(top_k)),
@@ -783,6 +785,7 @@ class LightFM:
                     recommendations = dict(zip(user_ids, recs_list))
                 pool.terminate()
         finally:
+            self.debug('Cleaning up...')
             _batch_cleanup()
         self.info('Recs done')
 
