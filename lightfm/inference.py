@@ -3,7 +3,7 @@ from typing import Tuple, Union
 import numpy as np
 from scipy import sparse as sp
 
-from lightfm import LightFM
+from lightfm import LightFM, CYTHON_DTYPE
 
 # Set of global variables for multiprocessing
 _item_ids = np.array([])
@@ -23,6 +23,14 @@ def _batch_setup(model: LightFM,
 
     if item_ids.dtype != np.int32:
         item_ids = item_ids.astype(np.int32)
+
+    if item_features is None:
+        n_items = len(model.item_biases)
+        item_features = sp.identity(n_items, dtype=CYTHON_DTYPE, format='csr')
+
+    if user_features is None:
+        n_users = len(model.user_biases)
+        user_features = sp.identity(n_users, dtype=CYTHON_DTYPE, format='csr')
 
     n_users = user_features.shape[0]
     user_features = model._construct_user_features(n_users, user_features)

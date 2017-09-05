@@ -398,6 +398,23 @@ def test_batch_predict_user_recs_per_user():
         assert_array_almost_equal(rec_scores, -1 * np.sort(-1 * rec_scores))
 
 
+def test_batch_predict_user_recs_per_user_wo_features():
+    no_components = 2
+    ds = RandomDataset()
+
+    model = LightFM(no_components=no_components)
+    model.fit_partial(ds.train)
+    model.batch_setup(item_ids=np.arange(ds.no_items))
+
+    for uid in range(ds.no_users):
+        rec_item_ids, rec_scores = model.predict_for_user(
+            user_id=uid,
+            top_k=5,
+        )
+        assert len(rec_scores) == 5
+        assert_array_almost_equal(rec_scores, -1 * np.sort(-1 * rec_scores))
+
+
 class RandomDataset:
 
     def __init__(self,
