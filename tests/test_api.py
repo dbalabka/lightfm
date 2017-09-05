@@ -301,11 +301,15 @@ def test_precompute_representation():
     user_features = sp.random(n_users, n_user_features, density=.1)
     feature_embeddings = np.random.uniform(size=(n_user_features, no_component))
     feature_biases = np.random.uniform(size=n_user_features)
-    scale = 1.1
     features = user_features
 
-    representation = inference._precompute_representation(features, feature_embeddings, feature_biases, scale)
-    assert representation.shape == (n_users, no_component + 1)
+    representation, representation_biases = inference._precompute_representation(
+        features,
+        feature_embeddings,
+        feature_biases,
+    )
+    assert representation.shape == (n_users, no_component)
+    assert representation_biases.shape == (n_users, )
 
 
 def test_batch_predict():
@@ -323,9 +327,9 @@ def test_batch_predict():
     user_repr = inference._user_repr
     item_repr = inference._item_repr
     assert np.sum(user_repr)
-    assert user_repr.shape == (ds.no_users, no_components + 1)
+    assert user_repr.shape == (ds.no_users, no_components)
     assert np.sum(item_repr)
-    assert item_repr.shape == (no_components + 1, ds.no_items)
+    assert item_repr.shape == (no_components, ds.no_items)
 
     # TODO: check no setup
     # TODO: different feature dimensions
@@ -392,7 +396,6 @@ class RandomDataset:
 
 
 def test_full_batch_predict():
-    # TODO: not finished
     no_components = 2
     top_k = 5
     ds = RandomDataset()
@@ -427,6 +430,43 @@ def test_full_batch_predict():
     for user_id in user_ids:
         assert user_id in recoms
         assert_array_almost_equal(recoms[user_id], initial_recoms[user_id])
+
+
+def test_regression_full_batch_predict():
+    no_components = 2
+    np.random.seed(42)
+    ds = RandomDataset(no_items=5, density=1)
+
+    model = LightFM(no_components=no_components)
+    model.fit(ds.train, user_features=ds.user_features, item_features=ds.item_features)
+
+    # Set non zero biases
+    model.item_biases += 0.2
+    model.user_biases += 0.5
+    user_ids = [0, 1, 2]
+
+    # Single process
+    recoms = model.batch_predict(
+        user_ids=user_ids,
+        item_ids=ds.item_ids,
+        user_features=ds.user_features,
+        item_features=ds.item_features,
+        n_process=2,
+        top_k=0,  # Score all items
+    )
+    zeros = 0
+    for user_id in user_ids:
+        scores = model.predict(
+            user_ids=user_id,
+            item_ids=ds.item_ids,
+            item_features=ds.item_features,
+            user_features=ds.user_features,
+            num_threads=1,
+        )
+        if sum(scores) != 0:
+            zeros += 1
+        assert_array_almost_equal(recoms[user_id][1], scores)
+    assert zeros != 0
 
 
 def test_get_top_k_scores():

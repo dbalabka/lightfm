@@ -1,7 +1,5 @@
 import pytest
-
 import numpy as np
-
 import scipy.sparse as sp
 
 from lightfm.datasets import fetch_movielens, fetch_stackexchange

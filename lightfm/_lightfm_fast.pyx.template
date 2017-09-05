@@ -305,11 +305,9 @@ cdef inline void compute_representation(CSRMatrix features,
     start_index = features.get_row_start(row_id)
     stop_index = features.get_row_end(row_id)
 
-    # TODO: memcopy
     for i in range(lightfm.no_components + 1):
         representation[i] = 0.0
 
-    # TODO: matrix operations
     # For every feature in row
     for i in range(start_index, stop_index):
 
@@ -320,36 +318,9 @@ cdef inline void compute_representation(CSRMatrix features,
 
             representation[j] += feature_weight * feature_embeddings[feature, j]
 
+        # bias
         representation[lightfm.no_components] += feature_weight * feature_biases[feature]
 
-cpdef compute_representation_full(CSRMatrix features,
-                                    flt[:, ::1] feature_embeddings,
-                                    flt[::1] feature_biases,
-                                    int no_components,
-                                    int row_id):
-    """
-    Compute latent representation for row_id.
-    The last element of the representation is the bias.
-    """
-    cdef scale = 1.0
-
-    cdef int i, j, start_index, stop_index, feature
-    cdef flt feature_weight
-
-    start_index = features.get_row_start(row_id)
-    stop_index = features.get_row_end(row_id)
-    representation = np.zeros(no_components + 1, dtype=CYTHON_DTYPE)
-
-    for i in range(start_index, stop_index):
-        feature = features.indices[i]
-        feature_weight = features.data[i] * scale
-
-        for j in range(no_components):
-
-            representation[j] += feature_weight * feature_embeddings[feature, j]
-
-        representation[no_components] += feature_weight * feature_biases[feature]
-    return representation
 
 cdef inline flt compute_prediction_from_repr(flt *user_repr,
                                              flt *item_repr,
@@ -363,7 +334,6 @@ cdef inline flt compute_prediction_from_repr(flt *user_repr,
 
     # Latent factor dot product
     for i in range(no_components):
-        # TODO: muthafucka, i should vectorize this!
         result += user_repr[i] * item_repr[i]
 
     return result
@@ -780,6 +750,7 @@ def fit_logistic(CSRMatrix item_features,
                 user_id,
                 lightfm.user_scale,
                 user_repr)
+
             compute_representation(
                 item_features,
                 lightfm.item_features,
