@@ -3,12 +3,12 @@ from typing import Tuple, Union
 import numpy as np
 from scipy import sparse as sp
 
-from lightfm import CYTHON_DTYPE, LightFM
+from lightfm import LightFM
 
 # Set of global variables for multiprocessing
 _item_ids = np.array([])
-_user_repr = np.array([])
-_item_repr = np.ndarray([])
+_user_repr = np.array([])   # n_users, n_features
+_item_repr = np.ndarray([])  # n_features, n_items
 
 
 def _batch_setup(model: LightFM,
@@ -41,6 +41,7 @@ def _batch_setup(model: LightFM,
         1.0,
         # TODO: why scale always 1.0 at the beginning?
     )
+    _item_repr = _item_repr.T
 
     _item_ids = item_ids
 
@@ -53,7 +54,7 @@ def _get_top_k_scores(scores: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarra
     if k:
         top_indices = np.argpartition(scores, -k)[-k:]
         scores = scores[top_indices]
-        sorted_top_indices = np.argsort(scores)[::-1]
+        sorted_top_indices = np.argsort(-scores)
         scores = scores[sorted_top_indices]
         top_indices = top_indices[sorted_top_indices]
     else:
@@ -66,14 +67,7 @@ def _batch_predict_for_user(user_id: int, top_k: int=50) -> Tuple[np.ndarray, np
     """
     :return: indices of items, top_k scores. All in score decreasing order.
     """
-    from lightfm._lightfm_fast import batch_predict_lightfm
-    scores = np.zeros(len(_item_ids), dtype=CYTHON_DTYPE)
-
-    batch_predict_lightfm(
-        user_repr=_user_repr[user_id, :],
-        item_repr=_item_repr,
-        predictions=scores,
-    )
+    scores = _user_repr[user_id, :].dot(_item_repr)
     return _get_top_k_scores(scores, k=top_k)
 
 
@@ -94,7 +88,6 @@ def _precompute_representation(
     feature_embeddings = feature_embeddings * scale
     representation = features.dot(feature_embeddings)
     representation = np.hstack([representation, features.dot(feature_biases).reshape(-1, 1)])
-
     return representation
 
 

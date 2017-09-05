@@ -1268,18 +1268,6 @@ def predict_lightfm(CSRMatrix item_features,
         free(it_repr)
 
 
-cpdef batch_predict_lightfm(np.ndarray[CYTHON_DTYPE_t, ndim=2] item_repr,
-                            np.ndarray[CYTHON_DTYPE_t, ndim=1] user_repr,
-                            np.ndarray[CYTHON_DTYPE_t, ndim=1] predictions):
-    cdef int item_idx, no_item
-
-    no_items = item_repr.shape[0]
-
-    for item_idx in range(no_items):
-        # TODO: check thi plz, mb optimize?
-        predictions[item_idx] = user_repr.dot(item_repr[item_idx, :])
-
-
 def predict_ranks(CSRMatrix item_features,
                   CSRMatrix user_features,
                   CSRMatrix test_interactions,

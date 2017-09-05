@@ -325,7 +325,7 @@ def test_batch_predict():
     assert np.sum(user_repr)
     assert user_repr.shape == (ds.no_users, no_components + 1)
     assert np.sum(item_repr)
-    assert item_repr.shape == (ds.no_items, no_components + 1)
+    assert item_repr.shape == (no_components + 1, ds.no_items)
 
     # TODO: check no setup
     # TODO: different feature dimensions
