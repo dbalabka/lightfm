@@ -177,7 +177,7 @@ use_openmp = not sys.platform.startswith('darwin') and not sys.platform.startswi
 
 setup(
     name='lightfm',
-    version='1.13.8',
+    version='1.13.9',
     description='LightFM recommendation model',
     url='https://github.com/lyst/lightfm',
     packages=['lightfm', 'lightfm.datasets'],
