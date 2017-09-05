@@ -379,8 +379,8 @@ class RandomDataset:
                  no_users: int=5,
                  no_items: int=100,
                  no_features: int=3,
-                 density=.3,
-                 ):
+                 density=.3):
+
         self.no_users = no_users
         self.no_items = no_items
         self.no_features = no_features
