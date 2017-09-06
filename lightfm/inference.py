@@ -13,6 +13,16 @@ _item_repr = np.ndarray([])  # n_features, n_items
 _item_repr_biases = np.array([])
 
 
+def _check_setup():
+    if not (len(_item_ids)
+        and len(_user_repr)
+        and len(_user_repr_biases)
+        and len(_item_repr)
+        and len(_item_repr_biases)):
+
+        raise EnvironmentError('You must setup mode.batch_setup(item_ids) before using predict')
+
+
 def _batch_setup(model: LightFM,
                  item_ids: np.ndarray,
                  item_features: Union[None, sp.csr_matrix]=None,

@@ -743,7 +743,8 @@ class LightFM:
         """
         :return: indices of items, top_k scores. All in score decreasing order.
         """
-        from lightfm.inference import _batch_predict_for_user
+        from lightfm.inference import _batch_predict_for_user, _check_setup
+        _check_setup()
         return _batch_predict_for_user(user_id=user_id, top_k=top_k, item_ids=item_ids)
 
     def batch_predict(self,
@@ -756,7 +757,7 @@ class LightFM:
         """
         :return: dict by user id: item_indices, scores sorted by score
         """
-        from lightfm.inference import _batch_predict_for_user, _batch_setup, _batch_cleanup
+        from lightfm.inference import _batch_predict_for_user, _batch_setup, _batch_cleanup, _check_setup
 
         self._check_initialized()
         self.info('Batch predict: user_ids: {:,}, item_ids: {:,}'.format(len(user_ids), len(item_ids)))
@@ -768,6 +769,7 @@ class LightFM:
         try:
             self.debug('Settings up ids and features...')
             _batch_setup(model=self, item_ids=item_ids, item_features=item_features, user_features=user_features)
+            _check_setup()
             self.debug('All setup!')
             if n_process == 1:
                 self.debug('Using single process')

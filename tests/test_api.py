@@ -361,6 +361,10 @@ def test_predict_for_user_with_items():
     ds = RandomDataset(no_items=5, no_users=2, density=1.)
     model = LightFM(no_components=no_components)
     model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
+    inference._batch_cleanup()
+
+    with pytest.raises(EnvironmentError):
+        model.predict_for_user(user_id=0, top_k=2, item_ids=np.arange(2))
 
     model.batch_setup(
         item_ids=np.arange(ds.no_items),
