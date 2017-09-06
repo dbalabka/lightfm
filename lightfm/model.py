@@ -749,8 +749,8 @@ class LightFM:
     def batch_predict(self,
                       user_ids: Union[np.ndarray, list],
                       item_ids: np.ndarray,
-                      user_features: Union[sp.csr_matrix, None],
-                      item_features: Union[sp.csr_matrix, None],
+                      user_features: Union[sp.csr_matrix, None] = None,
+                      item_features: Union[sp.csr_matrix, None] = None,
                       n_process: int=1,
                       top_k: int=50) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
         """

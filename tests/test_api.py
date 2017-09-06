@@ -470,6 +470,27 @@ def test_full_batch_predict():
         assert_array_almost_equal(recoms[user_id], initial_recoms[user_id])
 
 
+def test_full_batch_predict_wo_features():
+    no_components = 2
+    top_k = 5
+    ds = RandomDataset(density=1.0)
+
+    model = LightFM(no_components=no_components)
+    model.fit_partial(ds.train)
+    user_ids = [0, 1, 2]
+
+    # Single process
+    recoms = model.batch_predict(
+        user_ids=user_ids,
+        item_ids=ds.item_ids,
+        n_process=1,
+        top_k=top_k,
+    )
+    for user_id in user_ids:
+        assert user_id in recoms
+        assert len(recoms[user_id][0]) == top_k
+
+
 def test_regression_full_batch_predict():
     no_components = 2
     np.random.seed(42)

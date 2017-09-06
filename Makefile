@@ -55,7 +55,7 @@ compile:
 	python setup.py build_ext --inplace
 
 bump:
-	@bumpversion --tag patch
+	@bumpversion --commit --tag patch
 
 coverage:
 	@coverage run --source lightfm -m py.test
