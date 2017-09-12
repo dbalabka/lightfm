@@ -320,7 +320,6 @@ def test_batch_predict():
     model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
 
     model.batch_setup(
-        item_ids=np.arange(ds.no_items),
         user_features=ds.user_features,
         item_features=ds.item_features,
     )
@@ -367,7 +366,6 @@ def test_predict_for_user_with_items():
         model.predict_for_user(user_id=0, top_k=2, item_ids=np.arange(2))
 
     model.batch_setup(
-        item_ids=np.arange(ds.no_items),
         user_features=ds.user_features,
         item_features=ds.item_features,
     )
@@ -388,7 +386,6 @@ def test_batch_predict_user_recs_per_user():
     model = LightFM(no_components=no_components)
     model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
     model.batch_setup(
-        item_ids=np.arange(ds.no_items),
         user_features=ds.user_features,
         item_features=ds.item_features,
     )
@@ -408,7 +405,6 @@ def test_batch_predict_user_recs_per_user_wo_features():
 
     model = LightFM(no_components=no_components)
     model.fit_partial(ds.train)
-    model.batch_setup(item_ids=np.arange(ds.no_items))
 
     for uid in range(ds.no_users):
         rec_item_ids, rec_scores = model.predict_for_user(
@@ -447,11 +443,10 @@ def test_full_batch_predict():
     user_ids = [0, 1, 2]
 
     # Single process
+    model.batch_setup(user_features=ds.user_features, item_features=ds.item_features)
     recoms = model.batch_predict(
         user_ids=user_ids,
         item_ids=ds.item_ids,
-        user_features=ds.user_features,
-        item_features=ds.item_features,
         n_process=1,
         top_k=top_k,
     )
@@ -464,8 +459,6 @@ def test_full_batch_predict():
     recoms = model.batch_predict(
         user_ids=user_ids,
         item_ids=ds.item_ids,
-        user_features=ds.user_features,
-        item_features=ds.item_features,
         n_process=2,
         top_k=top_k,
     )
@@ -508,13 +501,11 @@ def test_regression_full_batch_predict():
     model.user_biases += 0.5
     user_ids = [0, 1, 2]
 
-    # Single process
+    model.batch_setup(item_features=ds.item_features, user_features=ds.user_features)
     recoms = model.batch_predict(
         user_ids=user_ids,
         item_ids=ds.item_ids,
-        user_features=ds.user_features,
-        item_features=ds.item_features,
-        n_process=2,
+        n_process=1,
         top_k=0,  # Score all items
     )
     zeros = 0

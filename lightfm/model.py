@@ -733,11 +733,14 @@ class LightFM:
         return predictions
 
     def batch_setup(self,
-                    item_ids: np.ndarray,
                     item_features: Union[None, sp.csr_matrix]=None,
                     user_features: Union[None, sp.csr_matrix]=None):
         from lightfm.inference import _batch_setup
-        _batch_setup(model=self, item_ids=item_ids, item_features=item_features, user_features=user_features)
+        _batch_setup(model=self, item_features=item_features, user_features=user_features)
+
+    def batch_cleanup(self):
+        from lightfm.inference import _batch_cleanup
+        _batch_cleanup()
 
     def predict_for_user(self, user_id: int, top_k: int=50, item_ids=None) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -749,15 +752,13 @@ class LightFM:
 
     def batch_predict(self,
                       user_ids: Union[np.ndarray, list],
-                      item_ids: np.ndarray,
-                      user_features: Union[sp.csr_matrix, None] = None,
-                      item_features: Union[sp.csr_matrix, None] = None,
+                      item_ids: Union[np.ndarray, None] = None,
                       n_process: int=1,
                       top_k: int=50) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
         """
         :return: dict by user id: item_indices, scores sorted by score
         """
-        from lightfm.inference import _batch_predict_for_user, _batch_setup, _batch_cleanup, _check_setup
+        from lightfm.inference import _batch_predict_for_user, _setup_items, _check_setup
 
         self._check_initialized()
         self.info('Batch predict: user_ids: {:,}, item_ids: {:,}'.format(len(user_ids), len(item_ids)))
@@ -766,29 +767,26 @@ class LightFM:
         if not isinstance(user_ids, np.ndarray):
             user_ids = np.array(user_ids, dtype=ID_DTYPE)
 
-        try:
-            self.debug('Settings up ids and features...')
-            _batch_setup(model=self, item_ids=item_ids, item_features=item_features, user_features=user_features)
-            _check_setup()
-            self.debug('All setup!')
-            if n_process == 1:
-                self.debug('Using single process')
-                for user_id in user_ids:
-                    rec_ids, scores = _batch_predict_for_user(user_id=user_id, top_k=top_k)
-                    recommendations[user_id] = rec_ids, scores
-            else:
-                self.debug('Creating pool of processes...')
-                with mp.Pool(processes=n_process) as pool:
-                    self.debug('Start recommending')
-                    recs_list = pool.starmap(
-                        _batch_predict_for_user,
-                        zip(user_ids, itertools.repeat(top_k)),
-                    )
-                    recommendations = dict(zip(user_ids, recs_list))
-                pool.terminate()
-        finally:
-            self.debug('Cleaning up...')
-            _batch_cleanup()
+        _setup_items(item_ids)
+        _check_setup()
+
+        self.debug('All setup!')
+        if n_process == 1:
+            self.debug('Using single process')
+            for user_id in user_ids:
+                rec_ids, scores = _batch_predict_for_user(user_id=user_id, top_k=top_k)
+                recommendations[user_id] = rec_ids, scores
+        else:
+            self.debug('Creating pool of processes...')
+            with mp.Pool(processes=n_process) as pool:
+                self.debug('Start recommending')
+                recs_list = pool.starmap(
+                    _batch_predict_for_user,
+                    zip(user_ids, itertools.repeat(top_k)),
+                )
+                recommendations = dict(zip(user_ids, recs_list))
+            pool.terminate()
+
         self.info('Recs done')
 
         return recommendations

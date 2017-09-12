@@ -14,25 +14,26 @@ _item_repr_biases = np.array([])
 
 
 def _check_setup():
-    if not (len(_item_ids)
-        and len(_user_repr)
+    if not (len(_user_repr)
         and len(_user_repr_biases)
         and len(_item_repr)
         and len(_item_repr_biases)):
 
         raise EnvironmentError('You must setup mode.batch_setup(item_ids) before using predict')
 
+def _setup_items(item_ids):
+    global _item_ids
+    if item_ids is None:
+        item_ids = np.array([])
+    _item_ids = item_ids
+
 
 def _batch_setup(model: LightFM,
-                 item_ids: np.ndarray,
                  item_features: Union[None, sp.csr_matrix]=None,
                  user_features: Union[None, sp.csr_matrix]=None):
 
-    global _item_ids, _item_repr, _user_repr
+    global _item_repr, _user_repr
     global _item_repr_biases, _user_repr_biases
-
-    if item_ids.dtype != np.int32:
-        item_ids = item_ids.astype(np.int32)
 
     if item_features is None:
         n_items = len(model.item_biases)
@@ -58,8 +59,6 @@ def _batch_setup(model: LightFM,
         feature_biases=model.item_biases,
     )
     _item_repr = _item_repr.T
-
-    _item_ids = item_ids
 
 
 def _precompute_representation(
@@ -108,6 +107,9 @@ def _batch_predict_for_user(user_id: int, top_k: int=50, item_ids=None) -> Tuple
     user_repr = _user_repr[user_id, :]
 
     if item_ids is None:
+        item_ids = _item_ids
+
+    if item_ids is None or len(item_ids) == 0:
         item_repr = _item_repr
         item_repr_biases = _item_repr_biases
     else:
