@@ -364,6 +364,7 @@ def test_batch_predict_with_items():
     model.batch_setup(user_features=ds.user_features, item_features=ds.item_features)
     n_items = 10
     item_ids = np.random.choice(ds.item_ids, n_items)
+    inference._setup_items(item_ids)
 
     for uid in range(ds.no_users):
 
@@ -379,9 +380,9 @@ def test_batch_predict_with_items():
         assert_array_almost_equal(original_scores, batch_predicted_scores)
 
         # Check ids
-        original_ids = np.argsort(-original_scores)[:10]
-        batch_ids, _ = model.predict_for_user(user_id=uid, item_ids=item_ids, top_k=10)
-        assert np.array_equal(original_ids, batch_ids)
+        original_ids = item_ids[np.argsort(-original_scores)[:5]]
+        batch_ids, _ = model.predict_for_user(user_id=uid, item_ids=item_ids, top_k=5)
+        assert_array_equal(original_ids, batch_ids)
 
 
 def test_predict_for_user_with_items():
