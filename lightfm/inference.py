@@ -21,6 +21,7 @@ def _check_setup():
 
         raise EnvironmentError('You must setup mode.batch_setup(item_ids) before using predict')
 
+
 def _setup_items(item_ids):
     global _item_ids
     if item_ids is None:
@@ -95,6 +96,9 @@ def _get_top_k_scores(scores: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarra
         top_indices = top_indices[sorted_top_indices]
     else:
         top_indices = np.arange(len(scores))
+
+    if len(_item_ids):
+        top_indices = _item_ids[top_indices]
 
     return top_indices, scores
 

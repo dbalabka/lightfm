@@ -314,7 +314,7 @@ def test_precompute_representation():
 
 def test_batch_predict():
     no_components = 2
-    ds = RandomDataset()
+    ds = RandomDataset(density=1.0)
 
     model = LightFM(no_components=no_components)
     model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
@@ -330,29 +330,58 @@ def test_batch_predict():
     assert np.sum(item_repr)
     assert item_repr.shape == (no_components, ds.no_items)
 
-    # TODO: check no setup
-    # TODO: different feature dimensions
-    # TODO: now working only with features
     zeros = 0
 
     for uid in range(ds.no_users):
 
-        original_predict_scores = model.predict(
+        original_scores = model.predict(
             np.repeat(uid, ds.no_items),
             np.arange(ds.no_items),
             user_features=ds.user_features,
             item_features=ds.item_features,
         )
 
+        # Check scores
         _, batch_predicted_scores = model.predict_for_user(user_id=uid, top_k=0)
+        assert_array_almost_equal(original_scores, batch_predicted_scores)
 
-        assert_array_almost_equal(original_predict_scores, batch_predicted_scores)
-        # Regression test
-        assert np.allclose(original_predict_scores, batch_predicted_scores)
+        # Check ids
+        original_ids = np.argsort(-original_scores)[:5]
+        batch_ids, _ = model.predict_for_user(user_id=uid, top_k=5)
+        assert np.array_equal(original_ids, batch_ids)
 
         if np.sum(batch_predicted_scores) == 0:
             zeros += 1
     assert zeros < ds.no_users, 'predictions seems to be all zeros'
+
+
+def test_batch_predict_with_items():
+    no_components = 2
+    ds = RandomDataset(density=1.0)
+
+    model = LightFM(no_components=no_components)
+    model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
+    model.batch_setup(user_features=ds.user_features, item_features=ds.item_features)
+    n_items = 10
+    item_ids = np.random.choice(ds.item_ids, n_items)
+
+    for uid in range(ds.no_users):
+
+        original_scores = model.predict(
+            np.repeat(uid, n_items),
+            item_ids=item_ids,
+            user_features=ds.user_features,
+            item_features=ds.item_features,
+        )
+
+        # Check scores
+        _, batch_predicted_scores = model.predict_for_user(user_id=uid, item_ids=item_ids, top_k=0)
+        assert_array_almost_equal(original_scores, batch_predicted_scores)
+
+        # Check ids
+        original_ids = np.argsort(-original_scores)[:10]
+        batch_ids, _ = model.predict_for_user(user_id=uid, item_ids=item_ids, top_k=10)
+        assert np.array_equal(original_ids, batch_ids)
 
 
 def test_predict_for_user_with_items():
@@ -535,3 +564,10 @@ def test_get_top_k_scores():
     item_ids, new_scores = inference._get_top_k_scores(scores=scores, k=2)
     assert_array_almost_equal(new_scores, np.array([.9, .2]))
     assert_array_equal(item_ids, np.array([3, 0]))
+
+    # Check, that we returned original item ids, not indices
+    items_to_recommend = np.array([0, 10, 20, 30])
+    inference._setup_items(items_to_recommend)
+    item_ids, new_scores = inference._get_top_k_scores(scores=scores, k=2)
+    assert_array_almost_equal(new_scores, np.array([.9, .2]))
+    assert_array_equal(item_ids, np.array([30, 0]))
