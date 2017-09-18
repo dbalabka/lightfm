@@ -734,9 +734,10 @@ class LightFM:
 
     def batch_setup(self,
                     item_features: Union[None, sp.csr_matrix]=None,
-                    user_features: Union[None, sp.csr_matrix]=None):
+                    user_features: Union[None, sp.csr_matrix]=None,
+                    n_process: int=1):
         from lightfm.inference import _batch_setup
-        _batch_setup(model=self, item_features=item_features, user_features=user_features)
+        _batch_setup(model=self, item_features=item_features, user_features=user_features, n_process=n_process)
 
     def batch_cleanup(self):
         from lightfm.inference import _batch_cleanup
@@ -758,7 +759,7 @@ class LightFM:
         """
         :return: dict by user id: item_indices, scores sorted by score
         """
-        from lightfm.inference import _batch_predict_for_user, _setup_items, _check_setup
+        from lightfm.inference import _batch_predict_for_user, _setup_items, _check_setup, _pool
 
         self._check_initialized()
         self.info('Batch predict: user_ids: {:,}, item_ids: {:,}'.format(len(user_ids), len(item_ids)))
@@ -778,17 +779,14 @@ class LightFM:
                 recommendations[user_id] = rec_ids, scores
         else:
             self.debug('Creating pool of processes...')
-            with mp.Pool(processes=n_process) as pool:
-                self.debug('Start recommending')
-                recs_list = pool.starmap(
-                    _batch_predict_for_user,
-                    zip(user_ids, itertools.repeat(top_k)),
-                )
-                recommendations = dict(zip(user_ids, recs_list))
-            pool.terminate()
+            self.debug('Start recommending')
+            recs_list = _pool.starmap(
+                _batch_predict_for_user,
+                zip(user_ids, itertools.repeat(top_k)),
+            )
+            recommendations = dict(zip(user_ids, recs_list))
 
         self.info('Recs done')
-
         return recommendations
 
     def predict_rank(self, test_interactions, train_interactions=None,

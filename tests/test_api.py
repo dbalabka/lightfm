@@ -473,23 +473,24 @@ def test_full_batch_predict():
     user_ids = [0, 1, 2]
 
     # Single process
-    model.batch_setup(user_features=ds.user_features, item_features=ds.item_features)
+    model.batch_setup(user_features=ds.user_features, item_features=ds.item_features, n_process=1)
     recoms = model.batch_predict(
         user_ids=user_ids,
         item_ids=ds.item_ids,
-        n_process=1,
         top_k=top_k,
     )
     for user_id in user_ids:
         assert user_id in recoms
         assert len(recoms[user_id][0]) == top_k
     initial_recoms = recoms
+    model.batch_cleanup()
+
+    model.batch_setup(user_features=ds.user_features, item_features=ds.item_features, n_process=2)
 
     # Multiple processes
     recoms = model.batch_predict(
         user_ids=user_ids,
         item_ids=ds.item_ids,
-        n_process=2,
         top_k=top_k,
     )
     for user_id in user_ids:

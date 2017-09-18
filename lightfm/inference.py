@@ -1,4 +1,5 @@
 from typing import Tuple, Union
+import multiprocessing as mp
 
 import numpy as np
 from scipy import sparse as sp
@@ -11,6 +12,7 @@ _user_repr = np.array([])   # n_users, n_features
 _user_repr_biases = np.array([])
 _item_repr = np.ndarray([])  # n_features, n_items
 _item_repr_biases = np.array([])
+_pool = None
 
 
 def _check_setup():
@@ -31,10 +33,12 @@ def _setup_items(item_ids):
 
 def _batch_setup(model: LightFM,
                  item_features: Union[None, sp.csr_matrix]=None,
-                 user_features: Union[None, sp.csr_matrix]=None):
+                 user_features: Union[None, sp.csr_matrix]=None,
+                 n_process: int=1):
 
     global _item_repr, _user_repr
     global _item_repr_biases, _user_repr_biases
+    global _pool
 
     if item_features is None:
         n_items = len(model.item_biases)
@@ -60,6 +64,10 @@ def _batch_setup(model: LightFM,
         feature_biases=model.item_biases,
     )
     _item_repr = _item_repr.T
+    if n_process > 1:
+        _pool = mp.Pool(processes=n_process)
+    else:
+        _clean_pool()
 
 
 def _precompute_representation(
@@ -126,8 +134,16 @@ def _batch_predict_for_user(user_id: int, top_k: int=50, item_ids=None) -> Tuple
     return _get_top_k_scores(scores, k=top_k)
 
 
+def _clean_pool():
+    global _pool
+    if _pool is not None:
+        _pool.terminate()
+        _pool = None
+
+
 def _batch_cleanup():
-    global _item_ids, _item_repr, _user_repr
+    global _item_ids, _item_repr, _user_repr, _pool
     _item_ids = np.array([])
     _user_repr = np.array([])
     _item_repr = np.ndarray([])
+    _clean_pool()
