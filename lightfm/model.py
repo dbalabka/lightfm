@@ -1,6 +1,5 @@
 import logging
 import itertools
-import multiprocessing as mp
 from copy import copy
 from typing import Union, Tuple, Dict
 
@@ -210,6 +209,8 @@ class LightFM:
             self.random_state = random_state
         else:
             self.random_state = np.random.RandomState(random_state)
+
+        self.n_process = 1
 
         self._reset_state()
 
@@ -737,6 +738,7 @@ class LightFM:
                     user_features: Union[None, sp.csr_matrix]=None,
                     n_process: int=1):
         from lightfm.inference import _batch_setup
+        self.n_process = n_process
         _batch_setup(model=self, item_features=item_features, user_features=user_features, n_process=n_process)
 
     def batch_cleanup(self):
@@ -754,7 +756,6 @@ class LightFM:
     def batch_predict(self,
                       user_ids: Union[np.ndarray, list],
                       item_ids: Union[np.ndarray, None] = None,
-                      n_process: int=1,
                       top_k: int=50) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
         """
         :return: dict by user id: item_indices, scores sorted by score
@@ -772,14 +773,13 @@ class LightFM:
         _check_setup()
 
         self.debug('All setup!')
-        if n_process == 1:
-            self.debug('Using single process')
+        if self.n_process == 1:
+            self.debug('Start recommending: using single process')
             for user_id in user_ids:
                 rec_ids, scores = _batch_predict_for_user(user_id=user_id, top_k=top_k)
                 recommendations[user_id] = rec_ids, scores
         else:
-            self.debug('Creating pool of processes...')
-            self.debug('Start recommending')
+            self.debug('Start recommending: using multiprocessing')
             recs_list = _pool.starmap(
                 _batch_predict_for_user,
                 zip(user_ids, itertools.repeat(top_k)),

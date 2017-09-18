@@ -182,8 +182,9 @@ setup(
     url='https://github.com/lyst/lightfm',
     packages=['lightfm', 'lightfm.datasets'],
     package_data={'': ['*.c']},
-    install_requires=['numpy', 'scipy>=0.17.0', 'requests', 'pandas==0.20.3'],
-    tests_require=['pytest', 'requests', 'scikit-learn'],
+    # TODO:
+    # install_requires=['numpy', 'scipy>=0.17.0', 'requests', 'pandas==0.20.3'],
+    # tests_require=['pytest', 'requests', 'scikit-learn'],
     cmdclass={'test': PyTest, 'cythonize': Cythonize, 'clean': Clean},
     author='Lyst Ltd (Maciej Kula)',
     author_email='data@ly.st',

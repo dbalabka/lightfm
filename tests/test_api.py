@@ -508,10 +508,10 @@ def test_full_batch_predict_wo_features():
     user_ids = [0, 1, 2]
 
     # Single process
+    model.batch_setup()
     recoms = model.batch_predict(
         user_ids=user_ids,
         item_ids=ds.item_ids,
-        n_process=1,
         top_k=top_k,
     )
     for user_id in user_ids:
@@ -536,7 +536,6 @@ def test_regression_full_batch_predict():
     recoms = model.batch_predict(
         user_ids=user_ids,
         item_ids=ds.item_ids,
-        n_process=1,
         top_k=0,  # Score all items
     )
     zeros = 0

@@ -18,3 +18,4 @@ lightfm/_lightfm_fast_no_openmp.pyx
 *.*-checkpoint
 .env
 .out
+deploy.sh

@@ -64,10 +64,9 @@ def _batch_setup(model: LightFM,
         feature_biases=model.item_biases,
     )
     _item_repr = _item_repr.T
+    _clean_pool()
     if n_process > 1:
         _pool = mp.Pool(processes=n_process)
-    else:
-        _clean_pool()
 
 
 def _precompute_representation(
