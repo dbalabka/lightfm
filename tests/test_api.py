@@ -320,6 +320,7 @@ def test_batch_predict():
     model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
 
     model.batch_setup(
+        item_chunks={0: ds.item_ids},
         user_features=ds.user_features,
         item_features=ds.item_features,
     )
@@ -342,12 +343,12 @@ def test_batch_predict():
         )
 
         # Check scores
-        _, batch_predicted_scores = model.predict_for_user(user_id=uid, top_k=0)
+        _, batch_predicted_scores = model.predict_for_user(user_id=uid, top_k=0, item_ids=ds.item_ids)
         assert_array_almost_equal(original_scores, batch_predicted_scores)
 
         # Check ids
         original_ids = np.argsort(-original_scores)[:5]
-        batch_ids, _ = model.predict_for_user(user_id=uid, top_k=5)
+        batch_ids, _ = model.predict_for_user(user_id=uid, top_k=5, item_ids=ds.item_ids)
         assert np.array_equal(original_ids, batch_ids)
 
         if np.sum(batch_predicted_scores) == 0:
@@ -361,10 +362,9 @@ def test_batch_predict_with_items():
 
     model = LightFM(no_components=no_components)
     model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
-    model.batch_setup(user_features=ds.user_features, item_features=ds.item_features)
+    model.batch_setup(item_chunks={0: ds.item_ids}, user_features=ds.user_features, item_features=ds.item_features)
     n_items = 10
     item_ids = np.random.choice(ds.item_ids, n_items)
-    inference._setup_items(item_ids)
 
     for uid in range(ds.no_users):
 
@@ -396,6 +396,7 @@ def test_predict_for_user_with_items():
         model.predict_for_user(user_id=0, top_k=2, item_ids=np.arange(2))
 
     model.batch_setup(
+        item_chunks={0: ds.item_ids},
         user_features=ds.user_features,
         item_features=ds.item_features,
     )
@@ -416,6 +417,7 @@ def test_batch_predict_user_recs_per_user():
     model = LightFM(no_components=no_components)
     model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
     model.batch_setup(
+        item_chunks={0: ds.item_ids},
         user_features=ds.user_features,
         item_features=ds.item_features,
     )
@@ -424,6 +426,7 @@ def test_batch_predict_user_recs_per_user():
         rec_item_ids, rec_scores = model.predict_for_user(
             user_id=uid,
             top_k=5,
+            item_ids=ds.item_ids,
         )
         assert len(rec_scores) == 5
         assert_array_almost_equal(rec_scores, -1 * np.sort(-1 * rec_scores))
@@ -440,6 +443,7 @@ def test_batch_predict_user_recs_per_user_wo_features():
         rec_item_ids, rec_scores = model.predict_for_user(
             user_id=uid,
             top_k=5,
+            item_ids=ds.item_ids,
         )
         assert len(rec_scores) == 5
         assert_array_almost_equal(rec_scores, -1 * np.sort(-1 * rec_scores))
@@ -471,12 +475,13 @@ def test_full_batch_predict():
     model = LightFM(no_components=no_components)
     model.fit_partial(ds.train, user_features=ds.user_features, item_features=ds.item_features)
     user_ids = [0, 1, 2]
+    chunks = {0: ds.item_ids}
 
     # Single process
-    model.batch_setup(user_features=ds.user_features, item_features=ds.item_features, n_process=1)
+    model.batch_setup(item_chunks=chunks, user_features=ds.user_features, item_features=ds.item_features, n_process=1)
     recoms = model.batch_predict(
         user_ids=user_ids,
-        item_ids=ds.item_ids,
+        chunk_id=0,
         top_k=top_k,
     )
     for user_id in user_ids:
@@ -485,12 +490,12 @@ def test_full_batch_predict():
     initial_recoms = recoms
     model.batch_cleanup()
 
-    model.batch_setup(user_features=ds.user_features, item_features=ds.item_features, n_process=2)
+    model.batch_setup(item_chunks=chunks, user_features=ds.user_features, item_features=ds.item_features, n_process=2)
 
     # Multiple processes
     recoms = model.batch_predict(
         user_ids=user_ids,
-        item_ids=ds.item_ids,
+        chunk_id=0,
         top_k=top_k,
     )
     for user_id in user_ids:
@@ -508,10 +513,10 @@ def test_full_batch_predict_wo_features():
     user_ids = [0, 1, 2]
 
     # Single process
-    model.batch_setup()
+    model.batch_setup({0: ds.item_ids})
     recoms = model.batch_predict(
         user_ids=user_ids,
-        item_ids=ds.item_ids,
+        chunk_id=0,
         top_k=top_k,
     )
     for user_id in user_ids:
@@ -532,10 +537,10 @@ def test_regression_full_batch_predict():
     model.user_biases += 0.5
     user_ids = [0, 1, 2]
 
-    model.batch_setup(item_features=ds.item_features, user_features=ds.user_features)
+    model.batch_setup(item_chunks={0: ds.item_ids}, item_features=ds.item_features, user_features=ds.user_features)
     recoms = model.batch_predict(
         user_ids=user_ids,
-        item_ids=ds.item_ids,
+        chunk_id=0,
         top_k=0,  # Score all items
     )
     zeros = 0
@@ -555,20 +560,20 @@ def test_regression_full_batch_predict():
 
 def test_get_top_k_scores():
     scores = np.array([.2, .1, .05, .9])
+    item_ids = np.arange(len(scores))
 
     # Without trimming to top k
-    item_ids, new_scores = inference._get_top_k_scores(scores=scores, k=0)
+    item_ids, new_scores = inference._get_top_k_scores(scores=scores, k=0, item_ids=item_ids)
     assert_array_almost_equal(new_scores, scores)
     assert_array_equal(item_ids, np.arange(4))
 
     # With trimming to top k
-    item_ids, new_scores = inference._get_top_k_scores(scores=scores, k=2)
+    item_ids, new_scores = inference._get_top_k_scores(scores=scores, k=2, item_ids=item_ids)
     assert_array_almost_equal(new_scores, np.array([.9, .2]))
     assert_array_equal(item_ids, np.array([3, 0]))
 
     # Check, that we returned original item ids, not indices
     items_to_recommend = np.array([0, 10, 20, 30])
-    inference._setup_items(items_to_recommend)
-    item_ids, new_scores = inference._get_top_k_scores(scores=scores, k=2)
+    item_ids, new_scores = inference._get_top_k_scores(scores=scores, k=2, item_ids=items_to_recommend)
     assert_array_almost_equal(new_scores, np.array([.9, .2]))
     assert_array_equal(item_ids, np.array([30, 0]))

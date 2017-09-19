@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Tuple, Union, Dict
 import multiprocessing as mp
 
 import numpy as np
@@ -7,12 +7,12 @@ from scipy import sparse as sp
 from lightfm import LightFM, CYTHON_DTYPE
 
 # Set of global variables for multiprocessing
-_item_ids = np.array([])
 _user_repr = np.array([])   # n_users, n_features
 _user_repr_biases = np.array([])
 _item_repr = np.ndarray([])  # n_features, n_items
 _item_repr_biases = np.array([])
 _pool = None
+_item_chunks = {}
 
 
 def _check_setup():
@@ -24,14 +24,8 @@ def _check_setup():
         raise EnvironmentError('You must setup mode.batch_setup(item_ids) before using predict')
 
 
-def _setup_items(item_ids):
-    global _item_ids
-    if item_ids is None:
-        item_ids = np.array([])
-    _item_ids = item_ids
-
-
 def _batch_setup(model: LightFM,
+                 item_chunks: Dict[int, np.ndarray],
                  item_features: Union[None, sp.csr_matrix]=None,
                  user_features: Union[None, sp.csr_matrix]=None,
                  n_process: int=1):
@@ -39,6 +33,7 @@ def _batch_setup(model: LightFM,
     global _item_repr, _user_repr
     global _item_repr_biases, _user_repr_biases
     global _pool
+    global _item_chunks
 
     if item_features is None:
         n_items = len(model.item_biases)
@@ -64,9 +59,12 @@ def _batch_setup(model: LightFM,
         feature_biases=model.item_biases,
     )
     _item_repr = _item_repr.T
+    _item_chunks = item_chunks
     _clean_pool()
+    # Pool creation should go last
     if n_process > 1:
         _pool = mp.Pool(processes=n_process)
+
 
 
 def _precompute_representation(
@@ -90,7 +88,7 @@ def _precompute_representation(
     return representation, representation_bias
 
 
-def _get_top_k_scores(scores: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarray]:
+def _get_top_k_scores(scores: np.ndarray, k: int, item_ids: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
     :return: indices of items, top_k scores. All in score decreasing order.
     """
@@ -104,21 +102,23 @@ def _get_top_k_scores(scores: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarra
     else:
         top_indices = np.arange(len(scores))
 
-    if len(_item_ids):
-        top_indices = _item_ids[top_indices]
+    if len(item_ids):
+        top_indices = item_ids[top_indices]
 
     return top_indices, scores
 
 
-def _batch_predict_for_user(user_id: int, top_k: int=50, item_ids=None) -> Tuple[np.ndarray, np.ndarray]:
+def _batch_predict_for_user(user_id: int, top_k: int=50, chunk_id: int=None, item_ids=None) -> Tuple[np.ndarray, np.ndarray]:
     """
     :return: indices of items, top_k scores. All in score decreasing order.
     """
     # exclude biases from repr (last column of user_repr and last row of transposed item repr)
     user_repr = _user_repr[user_id, :]
 
-    if item_ids is None:
-        item_ids = _item_ids
+    if chunk_id is not None:
+        item_ids = _item_chunks[chunk_id]
+    elif item_ids is None:
+        raise UserWarning('Supply item chunks at setup or item_ids in predict')
 
     if item_ids is None or len(item_ids) == 0:
         item_repr = _item_repr
@@ -130,7 +130,7 @@ def _batch_predict_for_user(user_id: int, top_k: int=50, item_ids=None) -> Tuple
     scores = user_repr.dot(item_repr)
     scores += _user_repr_biases[user_id]
     scores += item_repr_biases
-    return _get_top_k_scores(scores, k=top_k)
+    return _get_top_k_scores(scores, k=top_k, item_ids=item_ids)
 
 
 def _clean_pool():
@@ -141,8 +141,8 @@ def _clean_pool():
 
 
 def _batch_cleanup():
-    global _item_ids, _item_repr, _user_repr, _pool
-    _item_ids = np.array([])
+    global _item_ids, _item_repr, _user_repr, _pool, _item_chunks
+    _item_chunks = {}
     _user_repr = np.array([])
     _item_repr = np.ndarray([])
     _clean_pool()

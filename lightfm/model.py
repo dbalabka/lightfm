@@ -1,3 +1,4 @@
+import time
 import logging
 import itertools
 from copy import copy
@@ -734,12 +735,13 @@ class LightFM:
         return predictions
 
     def batch_setup(self,
+                    item_chunks: Dict[int, np.ndarray],
                     item_features: Union[None, sp.csr_matrix]=None,
                     user_features: Union[None, sp.csr_matrix]=None,
                     n_process: int=1):
         from lightfm.inference import _batch_setup
         self.n_process = n_process
-        _batch_setup(model=self, item_features=item_features, user_features=user_features, n_process=n_process)
+        _batch_setup(model=self, item_chunks=item_chunks, item_features=item_features, user_features=user_features, n_process=n_process)
 
     def batch_cleanup(self):
         from lightfm.inference import _batch_cleanup
@@ -754,39 +756,42 @@ class LightFM:
         return _batch_predict_for_user(user_id=user_id, top_k=top_k, item_ids=item_ids)
 
     def batch_predict(self,
+                      chunk_id: int,
                       user_ids: Union[np.ndarray, list],
-                      item_ids: Union[np.ndarray, None] = None,
                       top_k: int=50) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
         """
         :return: dict by user id: item_indices, scores sorted by score
         """
-        from lightfm.inference import _batch_predict_for_user, _setup_items, _check_setup, _pool
+        from lightfm.inference import _batch_predict_for_user, _check_setup, _pool, _item_chunks
 
         self._check_initialized()
-        self.info('Batch predict: user_ids: {:,}, item_ids: {:,}'.format(len(user_ids), len(item_ids)))
+        self.info('Batch predict: user_ids: {:,}, item_ids: {:,}'.format(len(user_ids), len(_item_chunks[chunk_id])))
 
         recommendations = {}
         if not isinstance(user_ids, np.ndarray):
             user_ids = np.array(user_ids, dtype=ID_DTYPE)
 
-        _setup_items(item_ids)
         _check_setup()
+        btime = time.time()
 
-        self.debug('All setup!')
         if self.n_process == 1:
             self.debug('Start recommending: using single process')
             for user_id in user_ids:
-                rec_ids, scores = _batch_predict_for_user(user_id=user_id, top_k=top_k)
+                rec_ids, scores = _batch_predict_for_user(user_id=user_id, top_k=top_k, chunk_id=chunk_id)
                 recommendations[user_id] = rec_ids, scores
         else:
             self.debug('Start recommending: using multiprocessing')
             recs_list = _pool.starmap(
                 _batch_predict_for_user,
-                zip(user_ids, itertools.repeat(top_k)),
+                zip(user_ids, itertools.repeat(top_k), itertools.repeat(chunk_id)),
             )
             recommendations = dict(zip(user_ids, recs_list))
 
-        self.info('Recs done')
+        elapsed_sec = time.time() - btime
+        elapsed_sec_by_user = elapsed_sec / len(user_ids)
+        self.info('Recommendations for chunk {:,} done in {:.3f}s. {:.4f} s by user'.format(
+            chunk_id, elapsed_sec, elapsed_sec_by_user,
+        ))
         return recommendations
 
     def predict_rank(self, test_interactions, train_interactions=None,
