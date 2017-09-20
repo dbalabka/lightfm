@@ -66,7 +66,6 @@ def _batch_setup(model: LightFM,
         _pool = mp.Pool(processes=n_process)
 
 
-
 def _precompute_representation(
         features: sp.csr_matrix,
         feature_embeddings: np.ndarray,
@@ -136,7 +135,7 @@ def _batch_predict_for_user(user_id: int, top_k: int=50, chunk_id: int=None, ite
 def _clean_pool():
     global _pool
     if _pool is not None:
-        _pool.terminate()
+        _pool.close()
         _pool = None
 
 
